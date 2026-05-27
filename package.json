@@ -9,6 +9,11 @@
     "build": "npm run build --workspace shared && npm run build --workspace server && npm run build --workspace client",
     "lint": "npm run lint --workspace server && npm run lint --workspace client",
     "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace server && npm run typecheck --workspace client",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio --schema prisma/schema.prisma",
     "format": "prettier --write ."
   },
   "workspaces": [
@@ -19,9 +24,13 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "prettier": "^3.6.2",
+    "prisma": "^6.19.0",
     "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0"
   }
 }

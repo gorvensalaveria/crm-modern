@@ -32,6 +32,10 @@ The implementation plan is documented in [`docs/README.md`](./docs/README.md). S
 
 ```bash
 npm install
+cp .env.example .env
+docker compose up -d postgres
+npm run db:push
+npm run db:seed
 npm run dev
 ```
 
@@ -43,6 +47,10 @@ The client runs on `http://localhost:5173` and the API runs on `http://localhost
 npm run build
 npm run typecheck
 npm run lint
+npm run db:generate
+npm run db:push
+npm run db:seed
+npm run db:studio
 ```
 
 ## Repository Layout
