@@ -18,6 +18,8 @@ export function PortalPage() {
   const queryClient = useQueryClient();
   const [uploadForm, setUploadForm] = useState<DocumentUploadPayload>(emptyUpload);
   const [uploadError, setUploadError] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [messageError, setMessageError] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["portal-summary"],
@@ -47,6 +49,24 @@ export function PortalPage() {
     }
   });
 
+  const messageMutation = useMutation({
+    mutationFn: () =>
+      api.createMatterMessage(data?.matterId ?? "", {
+        body: messageBody,
+        visibility: "EXTERNAL"
+      }),
+    onSuccess: async () => {
+      setMessageBody("");
+      setMessageError("");
+      await queryClient.invalidateQueries({ queryKey: ["portal-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["matter", data?.matterId] });
+      await queryClient.invalidateQueries({ queryKey: ["audit-events"] });
+    },
+    onError: (error) => {
+      setMessageError(error instanceof Error ? error.message : "Unable to send message");
+    }
+  });
+
   function updateUpload<K extends keyof DocumentUploadPayload>(field: K, value: DocumentUploadPayload[K]) {
     setUploadError("");
     setUploadForm((current) => ({ ...current, [field]: value }));
@@ -55,6 +75,11 @@ export function PortalPage() {
   function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     uploadMutation.mutate();
+  }
+
+  function handleMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    messageMutation.mutate();
   }
 
   if (isLoading || !data) return <p className="text-sm text-ink/60">Loading portal...</p>;
@@ -197,13 +222,34 @@ export function PortalPage() {
             <p className="mt-4 text-sm leading-6 text-ink/60">
               Your agent will be notified when documents are uploaded or a payment is completed.
             </p>
-            <button className="mt-4 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">
-              Message agent
-            </button>
+            {messageError ? (
+              <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                {messageError}
+              </div>
+            ) : null}
+            <form onSubmit={handleMessage} className="mt-4">
+              <textarea
+                required
+                value={messageBody}
+                onChange={(event) => {
+                  setMessageError("");
+                  setMessageBody(event.target.value);
+                }}
+                rows={4}
+                placeholder="Write a message to your agent"
+                className="form-input resize-none"
+              />
+              <button
+                type="submit"
+                disabled={messageMutation.isPending}
+                className="mt-3 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
+              >
+                {messageMutation.isPending ? "Sending..." : "Message agent"}
+              </button>
+            </form>
           </section>
         </div>
       </div>
     </div>
   );
 }
-

@@ -69,6 +69,21 @@ export type WorkflowTemplate = {
   itemCount: number;
   taskCount: number;
   checklistCount: number;
+  items?: Array<{
+    id: string;
+    type: "TASK" | "CHECKLIST";
+    title: string;
+    description: string | null;
+    stage: string;
+    dueOffsetDays: number;
+    required: boolean;
+  }>;
+};
+
+export type WorkflowTemplatePayload = {
+  visaSubclass: string;
+  name: string;
+  description: string;
 };
 
 export type MatterFromTemplatePayload = {
@@ -91,6 +106,11 @@ export type InvoicePayload = {
   tax: number;
   dueOn: string;
   status: "DRAFT" | "SENT";
+};
+
+export type MessagePayload = {
+  body: string;
+  visibility: "INTERNAL" | "EXTERNAL";
 };
 
 export type DocumentRecord = {
@@ -253,4 +273,30 @@ export type PortalSummary = {
       updatedAt: string;
     } | null;
   }>;
+};
+
+export type AuditEvent = {
+  id: string;
+  actor: string;
+  action: string;
+  entity: string;
+  entityType: string;
+  timestamp: string;
+};
+
+export type AuditFilters = {
+  action?: string;
+  actor?: string;
+  entity?: string;
+  from?: string;
+  to?: string;
+};
+
+export type AuditResponse = {
+  events: AuditEvent[];
+  meta: {
+    total: number;
+    actions: string[];
+    actors: string[];
+  };
 };

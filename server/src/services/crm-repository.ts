@@ -67,6 +67,27 @@ export type InvoiceInput = {
   status: "DRAFT" | "SENT";
 };
 
+export type MessageInput = {
+  body: string;
+  visibility: "INTERNAL" | "EXTERNAL";
+};
+
+export type WorkflowTemplateInput = {
+  visaSubclass: string;
+  name: string;
+  description?: string;
+};
+
+export type AuditFilters = {
+  action?: string;
+  actor?: string;
+  entity?: string;
+  from?: string;
+  to?: string;
+};
+
+export type ReportExportType = "pipeline" | "revenue" | "sla" | "deadlines" | "workload";
+
 export async function getClients() {
   return withFallback(fallbackClients as unknown, async () => {
     const clients = await prisma.client.findMany({
@@ -651,6 +672,39 @@ export async function payInvoice(invoiceId: string, demoUserId?: string) {
   return getMatterById(invoice.matterId);
 }
 
+export async function createMatterMessage(matterId: string, input: MessageInput, demoUserId?: string) {
+  const matter = await prisma.matter.findFirst({
+    where: { id: matterId, tenantId: defaultTenantId }
+  });
+
+  if (!matter) {
+    throw new Error("Matter not found");
+  }
+
+  const message = await prisma.message.create({
+    data: {
+      tenantId: defaultTenantId,
+      matterId,
+      senderId: demoUserId ? demoUserToDbUser[demoUserId] : undefined,
+      visibility: input.visibility,
+      body: input.body
+    }
+  });
+
+  await writeAuditEvent({
+    demoUserId,
+    action: "message.sent",
+    entityType: "Message",
+    entityId: message.id,
+    metadata: {
+      name: `Message on ${matter.title}`,
+      visibility: input.visibility
+    }
+  });
+
+  return getMatterById(matterId);
+}
+
 export async function getInvoices() {
   return withFallback([], async () => {
     const invoices = await prisma.invoice.findMany({
@@ -780,6 +834,53 @@ export async function getReports() {
   );
 }
 
+export async function exportReportCsv(type: ReportExportType, demoUserId?: string) {
+  const reports = await getReports();
+  const rowsByType: Record<ReportExportType, Array<Record<string, string | number>>> = {
+    pipeline: reports.pipelineByStage.map((row) => ({
+      stage: row.stage,
+      count: row.count
+    })),
+    revenue: reports.revenueBySubclass.map((row) => ({
+      subclass: row.subclass,
+      revenue: row.revenue
+    })),
+    sla: reports.slaBreaches.map((row) => ({
+      matterTitle: row.matterTitle,
+      taskTitle: row.taskTitle,
+      owner: row.owner,
+      daysOverdue: row.daysOverdue
+    })),
+    deadlines: reports.upcomingDeadlines.map((row) => ({
+      matterTitle: row.matterTitle,
+      clientName: row.clientName,
+      label: row.label,
+      date: row.date,
+      daysAway: row.daysAway
+    })),
+    workload: reports.workloadByOwner.map((row) => ({
+      owner: row.owner,
+      openTasks: row.openTasks
+    }))
+  };
+
+  await writeAuditEvent({
+    demoUserId,
+    action: "report.exported",
+    entityType: "Report",
+    entityId: type,
+    metadata: {
+      name: `${type} report export`,
+      type
+    }
+  });
+
+  return {
+    filename: `asun-${type}-report.csv`,
+    csv: toCsv(rowsByType[type])
+  };
+}
+
 export async function getWorkflowTemplates() {
   return withFallback([], async () => {
     const templates = await prisma.workflowTemplate.findMany({
@@ -795,9 +896,71 @@ export async function getWorkflowTemplates() {
       description: template.description,
       itemCount: template.items.length,
       taskCount: template.items.filter((item) => item.type === "TASK").length,
-      checklistCount: template.items.filter((item) => item.type === "CHECKLIST").length
+      checklistCount: template.items.filter((item) => item.type === "CHECKLIST").length,
+      items: template.items.map((item) => ({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        description: item.description,
+        stage: item.stage,
+        dueOffsetDays: item.dueOffsetDays,
+        required: item.required
+      }))
     }));
   });
+}
+
+export async function createWorkflowTemplate(input: WorkflowTemplateInput, demoUserId?: string) {
+  const template = await prisma.workflowTemplate.create({
+    data: {
+      tenantId: defaultTenantId,
+      visaSubclass: input.visaSubclass,
+      name: input.name,
+      description: input.description,
+      items: {
+        create: [
+          {
+            type: "CHECKLIST",
+            title: "Passport bio page",
+            description: "Identity document required before lodgement.",
+            stage: "DOCUMENTS",
+            dueOffsetDays: 2,
+            required: true
+          },
+          {
+            type: "CHECKLIST",
+            title: "Evidence pack",
+            description: "Core evidence requested for this visa subclass.",
+            stage: "DOCUMENTS",
+            dueOffsetDays: 7,
+            required: true
+          },
+          {
+            type: "TASK",
+            title: "RMA lodgement review",
+            description: "Registered Migration Agent review before submission.",
+            stage: "LODGEMENT",
+            dueOffsetDays: 14,
+            required: true
+          }
+        ]
+      }
+    }
+  });
+
+  await writeAuditEvent({
+    demoUserId,
+    action: "workflow_template.created",
+    entityType: "WorkflowTemplate",
+    entityId: template.id,
+    metadata: {
+      name: template.name,
+      visaSubclass: template.visaSubclass
+    }
+  });
+
+  const templates = await getWorkflowTemplates();
+  return templates.find((item) => item.id === template.id);
 }
 
 export async function createMatterFromTemplate(input: MatterFromTemplateInput, demoUserId?: string) {
@@ -960,22 +1123,65 @@ export async function getDashboard() {
   });
 }
 
-export async function getAuditEvents() {
+export async function getAuditEvents(filters: AuditFilters = {}) {
   return withFallback(fallbackAuditEvents as unknown, async () => {
+    const where = {
+      tenantId: defaultTenantId,
+      ...(filters.action ? { action: filters.action } : {}),
+      ...(filters.from || filters.to
+        ? {
+            createdAt: {
+              ...(filters.from ? { gte: new Date(filters.from) } : {}),
+              ...(filters.to ? { lte: endOfDay(new Date(filters.to)) } : {})
+            }
+          }
+        : {}),
+      ...(filters.actor
+        ? {
+            actor: {
+              name: {
+                contains: filters.actor,
+                mode: "insensitive" as const
+              }
+            }
+          }
+        : {})
+    };
+
     const events = await prisma.auditEvent.findMany({
-      where: { tenantId: defaultTenantId },
+      where,
       include: { actor: true },
       orderBy: { createdAt: "desc" },
-      take: 50
+      take: 100
     });
 
-    return events.map((event) => ({
-      id: event.id,
-      actor: event.actor?.name ?? "System",
-      action: event.action,
-      entity: auditEntityLabel(event.metadata, event.entityId),
-      timestamp: event.createdAt.toISOString()
-    }));
+    const mappedEvents = events
+      .map((event) => ({
+        id: event.id,
+        actor: event.actor?.name ?? "System",
+        action: event.action,
+        entity: auditEntityLabel(event.metadata, event.entityId),
+        entityType: event.entityType,
+        timestamp: event.createdAt.toISOString()
+      }))
+      .filter((event) =>
+        filters.entity ? event.entity.toLowerCase().includes(filters.entity.toLowerCase()) : true
+      );
+
+    const allEvents = await prisma.auditEvent.findMany({
+      where: { tenantId: defaultTenantId },
+      include: { actor: true },
+      orderBy: { action: "asc" }
+    });
+
+    return {
+      events: mappedEvents,
+      meta: {
+        total: mappedEvents.length,
+        actions: [...new Set(allEvents.map((event) => event.action))],
+        actors: [...new Set(allEvents.map((event) => event.actor?.name ?? "System"))]
+      }
+    };
   });
 }
 
@@ -1094,6 +1300,12 @@ function daysBetween(start: Date, end: Date) {
   return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / msPerDay));
 }
 
+function endOfDay(date: Date) {
+  const nextDate = new Date(date);
+  nextDate.setHours(23, 59, 59, 999);
+  return nextDate;
+}
+
 function countBy<T>(items: T[], getKey: (item: T) => string) {
   const counts = new Map<string, number>();
 
@@ -1114,6 +1326,25 @@ function sumBy<T>(items: T[], getKey: (item: T) => string, getValue: (item: T) =
   }
 
   return [...sums.entries()];
+}
+
+function toCsv(rows: Array<Record<string, string | number>>) {
+  if (!rows.length) {
+    return "No data\n";
+  }
+
+  const headers = Object.keys(rows[0] ?? {});
+  const lines = [
+    headers.join(","),
+    ...rows.map((row) => headers.map((header) => csvCell(row[header] ?? "")).join(","))
+  ];
+
+  return `${lines.join("\n")}\n`;
+}
+
+function csvCell(value: string | number) {
+  const text = String(value);
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 function auditEntityLabel(metadata: unknown, entityId: string) {

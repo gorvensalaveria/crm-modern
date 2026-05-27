@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CalendarClock, ClipboardList } from "lucide-react";
+import { CalendarClock, ClipboardList, Download } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { api } from "../services/api";
 
@@ -19,6 +19,22 @@ export function ReportsPage() {
         title="Reports"
         description="Pipeline, workload, deadline, SLA, and revenue reports for agency managers and RMAs."
       />
+
+      <section className="mb-6 rounded-lg border border-black/10 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">CSV Exports</h2>
+            <p className="mt-1 text-sm text-ink/55">Exports are generated from live database aggregates and logged for compliance.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ExportButton label="Pipeline" type="pipeline" />
+            <ExportButton label="Revenue" type="revenue" />
+            <ExportButton label="SLA" type="sla" />
+            <ExportButton label="Deadlines" type="deadlines" />
+            <ExportButton label="Workload" type="workload" />
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-black/10 bg-white p-5 shadow-sm">
@@ -112,5 +128,24 @@ export function ReportsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function ExportButton({
+  label,
+  type
+}: {
+  label: string;
+  type: "pipeline" | "revenue" | "sla" | "deadlines" | "workload";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => void api.exportReport(type)}
+      className="inline-flex items-center gap-2 rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-coral hover:text-coral"
+    >
+      <Download size={14} />
+      {label}
+    </button>
   );
 }

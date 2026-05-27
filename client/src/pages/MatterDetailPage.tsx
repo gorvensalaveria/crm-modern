@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileCheck2,
   Receipt,
+  MessageSquare,
   Upload
 } from "lucide-react";
 import { FormEvent, useState } from "react";
@@ -55,6 +56,8 @@ export function MatterDetailPage() {
   const [uploadError, setUploadError] = useState("");
   const [invoiceForm, setInvoiceForm] = useState<InvoicePayload>(emptyInvoiceForm);
   const [invoiceError, setInvoiceError] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [messageError, setMessageError] = useState("");
   const { data: matter, isLoading, error } = useQuery({
     queryKey: ["matter", matterId],
     queryFn: () => api.matter(matterId ?? ""),
@@ -118,6 +121,22 @@ export function MatterDetailPage() {
     onSuccess: async (updatedMatter) => refreshMatter(queryClient, updatedMatter.id)
   });
 
+  const messageMutation = useMutation({
+    mutationFn: () =>
+      api.createMatterMessage(matterId ?? "", {
+        body: messageBody,
+        visibility: "INTERNAL"
+      }),
+    onSuccess: async (updatedMatter) => {
+      setMessageBody("");
+      setMessageError("");
+      await refreshMatter(queryClient, updatedMatter.id);
+    },
+    onError: (mutationError) => {
+      setMessageError(mutationError instanceof Error ? mutationError.message : "Unable to save note");
+    }
+  });
+
   function updateUploadField<K extends keyof DocumentUploadPayload>(
     field: K,
     value: DocumentUploadPayload[K]
@@ -139,6 +158,11 @@ export function MatterDetailPage() {
   function handleInvoiceSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     invoiceMutation.mutate();
+  }
+
+  function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    messageMutation.mutate();
   }
 
   if (isLoading) return <p className="text-sm text-ink/60">Loading matter...</p>;
@@ -546,6 +570,59 @@ export function MatterDetailPage() {
         <SummaryPanel icon={CheckCircle2} label="Open tasks" value={`${matter.tasksOpen}/${matter.tasksTotal}`} />
         <SummaryPanel icon={FileCheck2} label="Documents" value={String(matter.documents.length)} />
       </div>
+
+      <section className="mt-6 rounded-lg border border-black/10 bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <MessageSquare size={18} />
+          <h2 className="text-lg font-semibold">Messages & Notes</h2>
+        </div>
+
+        <div className="mt-4 grid gap-6 xl:grid-cols-[1fr_0.8fr]">
+          <div className="space-y-3">
+            {matter.messages.length ? (
+              matter.messages.map((message) => (
+                <div key={message.id} className="rounded-md border border-black/10 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold">{message.sender}</p>
+                    <StatusBadge status={message.visibility} />
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-ink/65">{message.body}</p>
+                  <p className="mt-2 text-xs text-ink/45">{new Date(message.createdAt).toLocaleString()}</p>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-md bg-wheat p-4 text-sm text-ink/60">No messages yet.</p>
+            )}
+          </div>
+
+          <form onSubmit={handleMessageSubmit} className="rounded-md bg-wheat p-4">
+            <p className="text-sm font-semibold">Add internal note</p>
+            {messageError ? (
+              <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                {messageError}
+              </div>
+            ) : null}
+            <textarea
+              required
+              rows={6}
+              value={messageBody}
+              onChange={(event) => {
+                setMessageError("");
+                setMessageBody(event.target.value);
+              }}
+              placeholder="Record internal advice, follow-up, or case context"
+              className="form-input mt-3 resize-none"
+            />
+            <button
+              type="submit"
+              disabled={messageMutation.isPending}
+              className="mt-3 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
+            >
+              {messageMutation.isPending ? "Saving..." : "Save note"}
+            </button>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import {
   BarChart3,
   BriefcaseBusiness,
-  ClipboardList,
-  FileText,
+  GitBranchPlus,
   LayoutDashboard,
   LogOut,
   Receipt,
@@ -10,53 +9,31 @@ import {
   Users
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { canAccess, type PermissionKey } from "../auth/permissions";
 import { useDemoUser } from "../state/demo-user";
-import type { DemoRole } from "../types";
 
-const roleNav: Record<DemoRole, Array<{ label: string; to: string; icon: React.ComponentType<{ size: number }> }>> = {
-  ASUN_ADMIN: [
-    { label: "Dashboard", to: "/app", icon: LayoutDashboard },
-    { label: "Clients", to: "/app/clients", icon: Users },
-    { label: "Matters", to: "/app/matters", icon: BriefcaseBusiness },
-    { label: "Reports", to: "/app/reports", icon: BarChart3 },
-    { label: "Audit Logs", to: "/app/audit", icon: ShieldCheck }
-  ],
-  AGENCY_ADMIN: [
-    { label: "Dashboard", to: "/app", icon: LayoutDashboard },
-    { label: "Clients", to: "/app/clients", icon: Users },
-    { label: "Matters", to: "/app/matters", icon: BriefcaseBusiness },
-    { label: "Reports", to: "/app/reports", icon: BarChart3 },
-    { label: "Audit Logs", to: "/app/audit", icon: ShieldCheck }
-  ],
-  RMA: [
-    { label: "Dashboard", to: "/app", icon: LayoutDashboard },
-    { label: "Clients", to: "/app/clients", icon: Users },
-    { label: "Matters", to: "/app/matters", icon: BriefcaseBusiness },
-    { label: "Documents", to: "/app/matters", icon: FileText },
-    { label: "Reports", to: "/app/reports", icon: BarChart3 }
-  ],
-  CASE_OFFICER: [
-    { label: "Dashboard", to: "/app", icon: LayoutDashboard },
-    { label: "Clients", to: "/app/clients", icon: Users },
-    { label: "Matters", to: "/app/matters", icon: BriefcaseBusiness },
-    { label: "Tasks", to: "/app", icon: ClipboardList }
-  ],
-  FINANCE: [
-    { label: "Dashboard", to: "/app", icon: LayoutDashboard },
-    { label: "Billing", to: "/app/billing", icon: Receipt },
-    { label: "Reports", to: "/app/reports", icon: BarChart3 }
-  ],
-  CLIENT: [
-    { label: "Portal", to: "/app/portal", icon: LayoutDashboard },
-    { label: "Documents", to: "/app/portal", icon: FileText },
-    { label: "Invoices", to: "/app/portal", icon: Receipt }
-  ]
-};
+const navItems: Array<{
+  label: string;
+  to: string;
+  icon: React.ComponentType<{ size: number }>;
+  permission: PermissionKey;
+}> = [
+  { label: "Dashboard", to: "/app", icon: LayoutDashboard, permission: "dashboard" },
+  { label: "Clients", to: "/app/clients", icon: Users, permission: "clients" },
+  { label: "Matters", to: "/app/matters", icon: BriefcaseBusiness, permission: "matters" },
+  { label: "Workflows", to: "/app/workflows", icon: GitBranchPlus, permission: "workflows" },
+  { label: "Billing", to: "/app/billing", icon: Receipt, permission: "billing" },
+  { label: "Reports", to: "/app/reports", icon: BarChart3, permission: "reports" },
+  { label: "Audit Logs", to: "/app/audit", icon: ShieldCheck, permission: "audit" },
+  { label: "Portal", to: "/app/portal", icon: LayoutDashboard, permission: "portal" }
+];
 
 export function AppLayout() {
   const { currentUser, clearCurrentUser } = useDemoUser();
   const navigate = useNavigate();
-  const navItems = currentUser ? roleNav[currentUser.role] : [];
+  const visibleNavItems = currentUser
+    ? navItems.filter((item) => canAccess(currentUser.role, item.permission))
+    : [];
 
   return (
     <div className="min-h-screen bg-[#f7f5ef] text-ink">
@@ -67,7 +44,7 @@ export function AppLayout() {
         </div>
 
         <nav className="mt-8 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
 
             return (
@@ -127,4 +104,3 @@ export function AppLayout() {
     </div>
   );
 }
-
