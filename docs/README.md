@@ -11,10 +11,11 @@ This folder defines the implementation plan for the ASUN Migrations portfolio CR
 - [Frontend UX Plan](./frontend-ux-plan.md)
 - [Demo Role Strategy](./demo-role-strategy.md)
 - [Development Roadmap](./development-roadmap.md)
+- [Browser QA Script](./qa-script.md)
 
 ## Product Goal
 
-Build a credible SaaS CRM for Australian migration agencies that can be presented to future employers as a full-stack portfolio product. The app should demonstrate product thinking, clean architecture, role-based experiences, workflow automation, compliance awareness, billing, reporting, and client self-service.
+Build a credible SaaS CRM for Australian migration agencies that can be presented to future employers as a full-stack portfolio product. The app should demonstrate product thinking, clean architecture, role-based experiences, AI-assisted casework, workflow automation, compliance awareness, local document handling, billing, reporting, and client self-service.
 
 ## Chosen Stack
 
@@ -40,6 +41,7 @@ Backend:
 - PostgreSQL
 - Zod
 - Stripe SDK
+- XLSX report generation
 
 Development and deployment:
 
@@ -49,4 +51,3 @@ Development and deployment:
 - Vercel for frontend deployment
 - Render, Railway, or Fly.io for backend deployment
 - Neon, Supabase, or Railway PostgreSQL for hosted database
-

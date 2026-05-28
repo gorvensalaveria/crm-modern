@@ -136,7 +136,13 @@ export function BillingPage() {
                           Mock pay
                         </button>
                       ) : (
-                        <span className="text-xs font-semibold text-emerald-700">Paid</span>
+                        <button
+                          type="button"
+                          onClick={() => void api.downloadReceipt(invoice.id, invoice.number)}
+                          className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-600"
+                        >
+                          Receipt PDF
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -149,4 +155,3 @@ export function BillingPage() {
     </div>
   );
 }
-

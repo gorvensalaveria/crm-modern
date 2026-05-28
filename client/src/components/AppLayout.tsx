@@ -6,6 +6,7 @@ import {
   LogOut,
   Receipt,
   ShieldCheck,
+  SlidersHorizontal,
   Users
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
@@ -24,6 +25,7 @@ const navItems: Array<{
   { label: "Workflows", to: "/app/workflows", icon: GitBranchPlus, permission: "workflows" },
   { label: "Billing", to: "/app/billing", icon: Receipt, permission: "billing" },
   { label: "Reports", to: "/app/reports", icon: BarChart3, permission: "reports" },
+  { label: "Compliance", to: "/app/compliance", icon: SlidersHorizontal, permission: "compliance" },
   { label: "Audit Logs", to: "/app/audit", icon: ShieldCheck, permission: "audit" },
   { label: "Portal", to: "/app/portal", icon: LayoutDashboard, permission: "portal" }
 ];

@@ -8,6 +8,7 @@ export const routePermissions = {
   billing: ["ASUN_ADMIN", "AGENCY_ADMIN", "FINANCE"],
   reports: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "FINANCE"],
   audit: ["ASUN_ADMIN", "AGENCY_ADMIN"],
+  compliance: ["ASUN_ADMIN", "AGENCY_ADMIN"],
   portal: ["CLIENT"]
 } as const satisfies Record<string, readonly DemoRole[]>;
 

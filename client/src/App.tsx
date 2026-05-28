@@ -13,6 +13,9 @@ const ClientFormPage = lazy(() =>
   import("./pages/ClientFormPage").then((module) => ({ default: module.ClientFormPage }))
 );
 const ClientsPage = lazy(() => import("./pages/ClientsPage").then((module) => ({ default: module.ClientsPage })));
+const CompliancePage = lazy(() =>
+  import("./pages/CompliancePage").then((module) => ({ default: module.CompliancePage }))
+);
 const DashboardPage = lazy(() =>
   import("./pages/DashboardPage").then((module) => ({ default: module.DashboardPage }))
 );
@@ -150,6 +153,14 @@ export function App() {
             element={
               <RequireRole permission="audit">
                 <AuditPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="compliance"
+            element={
+              <RequireRole permission="compliance">
+                <CompliancePage />
               </RequireRole>
             }
           />

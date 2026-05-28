@@ -88,12 +88,46 @@ enum MessageVisibility {
   EXTERNAL
 }
 
+enum DocumentScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  FAILED
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum RetentionRequestStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum IntegrationProvider {
+  STRIPE
+  DOCUSIGN
+  EMAIL
+  VEVO
+}
+
 model Tenant {
   id              String             @id @default(uuid())
   name            String
   slug            String             @unique
   brandColor      String             @default("#47624f")
   retentionYears  Int                @default(7)
+  taxRate         Decimal            @default(10.00) @db.Decimal(5, 2)
+  dataRegion      String             @default("AU")
+  privacyContactEmail String?
+  deletionApproverRole Role          @default(AGENCY_ADMIN)
+  stripeMode      String             @default("mock")
+  docusignMode    String             @default("mock")
+  emailProvider   String             @default("mock")
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   users           User[]
@@ -110,6 +144,9 @@ model Tenant {
   messages        Message[]
   workflowTemplates WorkflowTemplate[]
   auditEvents     AuditEvent[]
+  notifications   Notification[]
+  retentionRequests RetentionRequest[]
+  integrationEvents IntegrationEvent[]
 }
 
 model User {
@@ -131,6 +168,8 @@ model User {
   verifiedChecklistItems ChecklistItem[] @relation("ChecklistVerifier")
   sentMessages          Message[]
   auditEvents           AuditEvent[]
+  requestedRetentionActions RetentionRequest[] @relation("RetentionRequester")
+  approvedRetentionActions  RetentionRequest[] @relation("RetentionApprover")
 
   @@unique([tenantId, email])
   @@index([tenantId, role])
@@ -155,6 +194,7 @@ model Client {
   invoices            Invoice[]
   primaryFamilyLinks  FamilyLink[]        @relation("PrimaryClient")
   dependantFamilyLinks FamilyLink[]       @relation("DependantClient")
+  retentionRequests   RetentionRequest[]
 
   @@unique([tenantId, email])
   @@index([tenantId, name])
@@ -266,9 +306,16 @@ model Document {
   fileType        String
   fileSize        Int
   storageKey      String
+  storageProvider String              @default("local")
+  checksum        String?
+  scanStatus      DocumentScanStatus  @default(PENDING)
+  scanProvider    String              @default("mock-av")
+  scanMessage     String?
+  scannedAt       DateTime?
   status          DocumentStatus      @default(RECEIVED)
   uploadedById    String?
   verifiedById    String?
+  verifiedAt      DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -279,6 +326,7 @@ model Document {
   envelopes       SignatureEnvelope[]
 
   @@index([tenantId, status])
+  @@index([tenantId, scanStatus])
 }
 
 model SignatureEnvelope {
@@ -288,6 +336,9 @@ model SignatureEnvelope {
   provider           String    @default("docusign")
   providerEnvelopeId String
   status             String
+  signerEmail        String?
+  signingUrl         String?
+  certificateStorageKey String?
   sentAt             DateTime  @default(now())
   completedAt        DateTime?
   tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -330,6 +381,59 @@ model Payment {
   createdAt         DateTime      @default(now())
   tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoice           Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String             @id @default(uuid())
+  tenantId    String
+  recipient   String
+  channel     String
+  subject     String
+  body        String
+  status      NotificationStatus @default(QUEUED)
+  provider    String             @default("mock")
+  sentAt      DateTime?
+  createdAt   DateTime           @default(now())
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model RetentionRequest {
+  id           String                 @id @default(uuid())
+  tenantId     String
+  clientId     String?
+  requestedById String?
+  approvedById String?
+  action       String
+  reason       String
+  status       RetentionRequestStatus @default(REQUESTED)
+  requestedAt  DateTime               @default(now())
+  approvedAt   DateTime?
+  completedAt  DateTime?
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client       Client?                @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  requestedBy  User?                  @relation("RetentionRequester", fields: [requestedById], references: [id])
+  approvedBy   User?                  @relation("RetentionApprover", fields: [approvedById], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, requestedAt])
+}
+
+model IntegrationEvent {
+  id          String              @id @default(uuid())
+  tenantId    String
+  provider    IntegrationProvider
+  eventType   String
+  externalId  String?
+  status      String
+  payload     Json?
+  receivedAt  DateTime            @default(now())
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, provider])
+  @@index([tenantId, receivedAt])
 }
 
 model Message {
@@ -390,4 +494,3 @@ model AuditEvent {
   @@index([tenantId, createdAt])
   @@index([tenantId, action])
 }
-

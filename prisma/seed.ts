@@ -142,6 +142,7 @@ async function main() {
   await seedMatterWork();
   await seedInvoices();
   await seedMessages();
+  await seedIntegrationLogs();
   await seedAuditEvents();
 }
 
@@ -483,10 +484,79 @@ function document(
     fileType,
     fileSize: 512000,
     storageKey: `demo/${fileName}`,
+    storageProvider: "local",
+    checksum: `sha256-demo-${fileName.replaceAll(/[^a-z0-9]/gi, "").toLowerCase()}`,
+    scanStatus: "CLEAN",
+    scanProvider: "mock-av",
+    scanMessage: "No threats detected.",
+    scannedAt: "2026-05-24T10:00:00.000Z",
     status,
     uploadedById,
-    verifiedById
+    verifiedById,
+    verifiedAt: verifiedById ? "2026-05-24T10:30:00.000Z" : null
   };
+}
+
+async function seedIntegrationLogs() {
+  await prisma.notification.deleteMany({ where: { tenantId } });
+  await prisma.integrationEvent.deleteMany({ where: { tenantId } });
+  await prisma.retentionRequest.deleteMany({ where: { tenantId } });
+
+  await prisma.notification.createMany({
+    data: [
+      {
+        tenantId,
+        recipient: "john.smith@example.com",
+        channel: "email",
+        subject: "Document verified",
+        body: "Your passport bio page was verified.",
+        status: "SENT",
+        provider: "mock",
+        sentAt: "2026-05-24T11:05:00.000Z"
+      },
+      {
+        tenantId,
+        recipient: "oliver.stone@asun.test",
+        channel: "email",
+        subject: "Invoice payment received",
+        body: "Payment was received for INV-2026-1002.",
+        status: "SENT",
+        provider: "mock",
+        sentAt: "2026-05-18T13:00:00.000Z"
+      }
+    ]
+  });
+
+  await prisma.integrationEvent.createMany({
+    data: [
+      {
+        tenantId,
+        provider: "EMAIL",
+        eventType: "notification.sent",
+        status: "sent",
+        payload: { subject: "Document verified" }
+      },
+      {
+        tenantId,
+        provider: "STRIPE",
+        eventType: "payment_intent.succeeded",
+        externalId: "pi_seed_priya_186",
+        status: "succeeded",
+        payload: { invoiceId: "invoice-priya-186" }
+      }
+    ]
+  });
+
+  await prisma.retentionRequest.create({
+    data: {
+      tenantId,
+      clientId: clients.miguel,
+      requestedById: users.agencyAdmin,
+      action: "ARCHIVE_REVIEW",
+      reason: "Review retention status for inactive intake matter.",
+      status: "REQUESTED"
+    }
+  });
 }
 
 main()

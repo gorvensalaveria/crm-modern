@@ -1,20 +1,35 @@
 import type {
   AuditFilters,
   AuditResponse,
+  AiComplianceReview,
+  AiDocumentReview,
+  AiMessageDraft,
+  AiMessageDraftIntent,
+  AiMatterBrief,
+  AiMatterIntakePlan,
+  AiPortalGuidance,
+  AiReportInsights,
+  AiWorkflowSuggestion,
   ClientDetail,
   ClientPayload,
   ClientRecord,
+  ComplianceCenter,
   Dashboard,
   DemoUser,
   DocumentUploadPayload,
   InvoicePayload,
   InvoiceRecord,
   Matter,
+  MatterChecklistPayload,
   MatterDetail,
   MatterFromTemplatePayload,
+  MatterTaskPayload,
   MessagePayload,
   PortalSummary,
   Report,
+  RetentionRequestPayload,
+  SignatureEnvelope,
+  TenantSettingsPayload,
   WorkflowTemplate,
   WorkflowTemplatePayload
 } from "../types";
@@ -83,6 +98,14 @@ export const api = {
     sendJson<ClientDetail>(`/api/clients/${clientId}`, "PATCH", payload),
   matters: () => getJson<Matter[]>("/api/matters"),
   matter: (matterId: string) => getJson<MatterDetail>(`/api/matters/${matterId}`),
+  generateMatterIntakePlan: (payload: MatterFromTemplatePayload) =>
+    sendJson<AiMatterIntakePlan>("/api/matters/ai-intake-plan", "POST", payload),
+  generateMatterAiBrief: (matterId: string) =>
+    sendJson<AiMatterBrief>(`/api/matters/${matterId}/ai-brief`, "POST", {}),
+  generateWorkflowSuggestions: (matterId: string) =>
+    sendJson<AiWorkflowSuggestion>(`/api/matters/${matterId}/ai-workflow-suggestions`, "POST", {}),
+  generateMatterMessageDraft: (matterId: string, intent: AiMessageDraftIntent) =>
+    sendJson<AiMessageDraft>(`/api/matters/${matterId}/ai-message-draft`, "POST", { intent }),
   updateMatterStage: (matterId: string, stage: MatterDetail["stage"]) =>
     sendJson<MatterDetail>(`/api/matters/${matterId}/stage`, "PATCH", { stage }),
   updateTaskStatus: (taskId: string, status: MatterDetail["tasks"][number]["status"]) =>
@@ -91,10 +114,18 @@ export const api = {
     checklistItemId: string,
     status: MatterDetail["checklistItems"][number]["status"]
   ) => sendJson<MatterDetail>(`/api/checklist-items/${checklistItemId}/status`, "PATCH", { status }),
+  createMatterTask: (matterId: string, payload: MatterTaskPayload) =>
+    sendJson<MatterDetail>(`/api/matters/${matterId}/tasks`, "POST", payload),
+  createMatterChecklistItem: (matterId: string, payload: MatterChecklistPayload) =>
+    sendJson<MatterDetail>(`/api/matters/${matterId}/checklist-items`, "POST", payload),
   uploadMatterDocument: (matterId: string, payload: DocumentUploadPayload) =>
     sendJson<MatterDetail>(`/api/matters/${matterId}/documents`, "POST", payload),
   reviewDocument: (documentId: string, status: "VERIFIED" | "REJECTED") =>
     sendJson<MatterDetail>(`/api/documents/${documentId}/review`, "PATCH", { status }),
+  generateDocumentAiReview: (documentId: string) =>
+    sendJson<AiDocumentReview>(`/api/documents/${documentId}/ai-review`, "POST", {}),
+  createSignatureEnvelope: (documentId: string, signerEmail: string) =>
+    sendJson<SignatureEnvelope>("/api/envelopes", "POST", { documentId, signerEmail }),
   createMatterInvoice: (matterId: string, payload: InvoicePayload) =>
     sendJson<MatterDetail>(`/api/matters/${matterId}/invoices`, "POST", payload),
   payInvoice: (invoiceId: string) => sendJson<MatterDetail>(`/api/invoices/${invoiceId}/pay`, "POST", {}),
@@ -107,8 +138,13 @@ export const api = {
   createMatterFromTemplate: (payload: MatterFromTemplatePayload) =>
     sendJson<Matter>("/api/matters/from-template", "POST", payload),
   reports: () => getJson<Report>("/api/reports"),
+  generateReportInsights: () => sendJson<AiReportInsights>("/api/reports/ai-insights", "POST", {}),
   exportReport: (type: "pipeline" | "revenue" | "sla" | "deadlines" | "workload") =>
     download(`/api/reports/export?type=${type}`, `asun-${type}-report.csv`),
+  exportReportXlsx: (type: "pipeline" | "revenue" | "sla" | "deadlines" | "workload") =>
+    download(`/api/reports/export-xlsx?type=${type}`, `asun-${type}-report.xlsx`),
+  downloadReceipt: (invoiceId: string, invoiceNumber: string) =>
+    download(`/api/invoices/${invoiceId}/receipt.pdf`, `${invoiceNumber}-receipt.pdf`),
   auditEvents: (filters: AuditFilters = {}) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -117,5 +153,14 @@ export const api = {
     const query = params.toString();
     return getJson<AuditResponse>(`/api/audit-events${query ? `?${query}` : ""}`);
   },
-  portalSummary: () => getJson<PortalSummary>("/api/portal/summary")
+  compliance: () => getJson<ComplianceCenter>("/api/compliance"),
+  generateComplianceReview: () => sendJson<AiComplianceReview>("/api/compliance/ai-review", "POST", {}),
+  updateTenantSettings: (payload: TenantSettingsPayload) =>
+    sendJson<ComplianceCenter>("/api/compliance/settings", "PATCH", payload),
+  createRetentionRequest: (payload: RetentionRequestPayload) =>
+    sendJson<ComplianceCenter>("/api/compliance/retention-requests", "POST", payload),
+  decideRetentionRequest: (retentionRequestId: string, status: "APPROVED" | "REJECTED" | "COMPLETED") =>
+    sendJson<ComplianceCenter>(`/api/compliance/retention-requests/${retentionRequestId}`, "PATCH", { status }),
+  portalSummary: () => getJson<PortalSummary>("/api/portal/summary"),
+  generatePortalGuidance: () => sendJson<AiPortalGuidance>("/api/portal/ai-guidance", "POST", {})
 };

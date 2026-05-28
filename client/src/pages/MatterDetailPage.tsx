@@ -7,6 +7,7 @@ import {
   FileCheck2,
   Receipt,
   MessageSquare,
+  Sparkles,
   Upload
 } from "lucide-react";
 import { FormEvent, useState } from "react";
@@ -14,7 +15,18 @@ import { Link, useParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
-import type { DocumentUploadPayload, InvoicePayload, MatterDetail } from "../types";
+import type {
+  AiDocumentReview,
+  AiMessageDraft,
+  AiMessageDraftIntent,
+  AiMatterBrief,
+  AiWorkflowSuggestion,
+  DocumentUploadPayload,
+  InvoicePayload,
+  MatterChecklistPayload,
+  MatterDetail,
+  MatterTaskPayload
+} from "../types";
 
 const matterStages: MatterDetail["stage"][] = [
   "INTAKE",
@@ -41,11 +53,24 @@ const emptyUploadForm: DocumentUploadPayload = {
   fileSize: 512000
 };
 
+const emptyTaskForm = (): MatterTaskPayload => ({
+  title: "",
+  description: "",
+  dueOn: dateOffset(7)
+});
+
+const emptyChecklistForm = (): MatterChecklistPayload => ({
+  title: "",
+  category: "GENERAL",
+  dueOn: dateOffset(7),
+  required: true
+});
+
 const emptyInvoiceForm: InvoicePayload = {
   description: "",
   subtotal: 0,
   tax: 0,
-  dueOn: "",
+  dueOn: dateOffset(14),
   status: "SENT"
 };
 
@@ -54,10 +79,18 @@ export function MatterDetailPage() {
   const queryClient = useQueryClient();
   const [uploadForm, setUploadForm] = useState<DocumentUploadPayload>(emptyUploadForm);
   const [uploadError, setUploadError] = useState("");
+  const [taskForm, setTaskForm] = useState<MatterTaskPayload>(emptyTaskForm);
+  const [taskError, setTaskError] = useState("");
+  const [checklistForm, setChecklistForm] = useState<MatterChecklistPayload>(emptyChecklistForm);
+  const [checklistError, setChecklistError] = useState("");
   const [invoiceForm, setInvoiceForm] = useState<InvoicePayload>(emptyInvoiceForm);
   const [invoiceError, setInvoiceError] = useState("");
   const [messageBody, setMessageBody] = useState("");
+  const [messageVisibility, setMessageVisibility] = useState<"INTERNAL" | "EXTERNAL">("INTERNAL");
   const [messageError, setMessageError] = useState("");
+  const [draftMeta, setDraftMeta] = useState<AiMessageDraft | null>(null);
+  const [documentAiReviews, setDocumentAiReviews] = useState<Record<string, AiDocumentReview>>({});
+  const [signatureStatus, setSignatureStatus] = useState("");
   const { data: matter, isLoading, error } = useQuery({
     queryKey: ["matter", matterId],
     queryFn: () => api.matter(matterId ?? ""),
@@ -86,6 +119,30 @@ export function MatterDetailPage() {
     onSuccess: async (updatedMatter) => refreshMatter(queryClient, updatedMatter.id)
   });
 
+  const createTaskMutation = useMutation({
+    mutationFn: () => api.createMatterTask(matterId ?? "", taskForm),
+    onSuccess: async (updatedMatter) => {
+      setTaskForm(emptyTaskForm());
+      setTaskError("");
+      await refreshMatter(queryClient, updatedMatter.id);
+    },
+    onError: (mutationError) => {
+      setTaskError(mutationError instanceof Error ? mutationError.message : "Unable to create task");
+    }
+  });
+
+  const createChecklistMutation = useMutation({
+    mutationFn: () => api.createMatterChecklistItem(matterId ?? "", checklistForm),
+    onSuccess: async (updatedMatter) => {
+      setChecklistForm(emptyChecklistForm());
+      setChecklistError("");
+      await refreshMatter(queryClient, updatedMatter.id);
+    },
+    onError: (mutationError) => {
+      setChecklistError(mutationError instanceof Error ? mutationError.message : "Unable to create checklist item");
+    }
+  });
+
   const uploadMutation = useMutation({
     mutationFn: () => api.uploadMatterDocument(matterId ?? "", uploadForm),
     onSuccess: async (updatedMatter) => {
@@ -102,6 +159,24 @@ export function MatterDetailPage() {
     mutationFn: ({ documentId, status }: { documentId: string; status: "VERIFIED" | "REJECTED" }) =>
       api.reviewDocument(documentId, status),
     onSuccess: async (updatedMatter) => refreshMatter(queryClient, updatedMatter.id)
+  });
+
+  const documentAiReviewMutation = useMutation({
+    mutationFn: (documentId: string) => api.generateDocumentAiReview(documentId),
+    onSuccess: (review, documentId) => {
+      setDocumentAiReviews((current) => ({ ...current, [documentId]: review }));
+    }
+  });
+
+  const signatureMutation = useMutation({
+    mutationFn: (documentId: string) => api.createSignatureEnvelope(documentId, "client.signer@example.com"),
+    onSuccess: async (envelope) => {
+      setSignatureStatus(`Envelope ${envelope.envelopeId} sent`);
+      if (matterId) await refreshMatter(queryClient, matterId);
+    },
+    onError: (mutationError) => {
+      setSignatureStatus(mutationError instanceof Error ? mutationError.message : "Unable to send envelope");
+    }
   });
 
   const invoiceMutation = useMutation({
@@ -125,15 +200,38 @@ export function MatterDetailPage() {
     mutationFn: () =>
       api.createMatterMessage(matterId ?? "", {
         body: messageBody,
-        visibility: "INTERNAL"
+        visibility: messageVisibility
       }),
     onSuccess: async (updatedMatter) => {
       setMessageBody("");
+      setMessageVisibility("INTERNAL");
       setMessageError("");
+      setDraftMeta(null);
       await refreshMatter(queryClient, updatedMatter.id);
     },
     onError: (mutationError) => {
       setMessageError(mutationError instanceof Error ? mutationError.message : "Unable to save note");
+    }
+  });
+
+  const aiBriefMutation = useMutation({
+    mutationFn: () => api.generateMatterAiBrief(matterId ?? "")
+  });
+
+  const workflowSuggestionMutation = useMutation({
+    mutationFn: () => api.generateWorkflowSuggestions(matterId ?? "")
+  });
+
+  const messageDraftMutation = useMutation({
+    mutationFn: (intent: AiMessageDraftIntent) => api.generateMatterMessageDraft(matterId ?? "", intent),
+    onSuccess: (draft) => {
+      setDraftMeta(draft);
+      setMessageBody(draft.draft);
+      setMessageVisibility("EXTERNAL");
+      setMessageError("");
+    },
+    onError: (mutationError) => {
+      setMessageError(mutationError instanceof Error ? mutationError.message : "Unable to draft message");
     }
   });
 
@@ -148,6 +246,29 @@ export function MatterDetailPage() {
   function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     uploadMutation.mutate();
+  }
+
+  function updateTaskField<K extends keyof MatterTaskPayload>(field: K, value: MatterTaskPayload[K]) {
+    setTaskError("");
+    setTaskForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleTaskSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createTaskMutation.mutate();
+  }
+
+  function updateChecklistField<K extends keyof MatterChecklistPayload>(
+    field: K,
+    value: MatterChecklistPayload[K]
+  ) {
+    setChecklistError("");
+    setChecklistForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleChecklistSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createChecklistMutation.mutate();
   }
 
   function updateInvoiceField<K extends keyof InvoicePayload>(field: K, value: InvoicePayload[K]) {
@@ -221,6 +342,72 @@ export function MatterDetailPage() {
         </div>
       </section>
 
+      <section className="mt-6 rounded-lg border border-black/10 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} />
+              <h2 className="text-lg font-semibold">AI Matter Assistant</h2>
+            </div>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-ink/55">
+              Generate a live case brief from tasks, documents, billing, messages, and compliance signals.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => aiBriefMutation.mutate()}
+            disabled={aiBriefMutation.isPending}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
+          >
+            <Sparkles size={16} />
+            {aiBriefMutation.isPending ? "Generating..." : "Generate AI Brief"}
+          </button>
+        </div>
+
+        {aiBriefMutation.error ? (
+          <div className="mt-4 rounded-md bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+            {aiBriefMutation.error instanceof Error ? aiBriefMutation.error.message : "Unable to generate AI brief"}
+          </div>
+        ) : null}
+
+        {aiBriefMutation.data ? <AiMatterBriefPanel brief={aiBriefMutation.data} /> : null}
+      </section>
+
+      <section className="mt-6 rounded-lg border border-black/10 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <ClipboardList size={18} />
+              <h2 className="text-lg font-semibold">AI Workflow Suggestions</h2>
+            </div>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-ink/55">
+              Suggest staff-reviewed stage, task, checklist, automation, and risk actions from the current matter.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => workflowSuggestionMutation.mutate()}
+            disabled={workflowSuggestionMutation.isPending}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-4 py-2 text-sm font-semibold hover:border-moss hover:text-moss disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Sparkles size={16} />
+            {workflowSuggestionMutation.isPending ? "Suggesting..." : "Suggest Workflow Actions"}
+          </button>
+        </div>
+
+        {workflowSuggestionMutation.error ? (
+          <div className="mt-4 rounded-md bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+            {workflowSuggestionMutation.error instanceof Error
+              ? workflowSuggestionMutation.error.message
+              : "Unable to generate workflow suggestions"}
+          </div>
+        ) : null}
+
+        {workflowSuggestionMutation.data ? (
+          <AiWorkflowSuggestionPanel suggestion={workflowSuggestionMutation.data} />
+        ) : null}
+      </section>
+
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.95fr]">
         <section className="rounded-lg border border-black/10 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2">
@@ -260,6 +447,44 @@ export function MatterDetailPage() {
               </div>
             ))}
           </div>
+          <form onSubmit={handleTaskSubmit} className="mt-4 rounded-md bg-wheat p-4">
+            <p className="text-sm font-semibold">Add task</p>
+            {taskError ? (
+              <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                {taskError}
+              </div>
+            ) : null}
+            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_0.7fr]">
+              <input
+                required
+                value={taskForm.title}
+                onChange={(event) => updateTaskField("title", event.target.value)}
+                placeholder="Follow up document review"
+                className="form-input"
+              />
+              <input
+                required
+                type="date"
+                value={taskForm.dueOn}
+                onChange={(event) => updateTaskField("dueOn", event.target.value)}
+                className="form-input"
+              />
+            </div>
+            <textarea
+              value={taskForm.description}
+              onChange={(event) => updateTaskField("description", event.target.value)}
+              placeholder="Optional task notes"
+              rows={3}
+              className="form-input mt-3 resize-none"
+            />
+            <button
+              type="submit"
+              disabled={createTaskMutation.isPending}
+              className="mt-3 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
+            >
+              {createTaskMutation.isPending ? "Adding..." : "Add task"}
+            </button>
+          </form>
         </section>
 
         <section className="rounded-lg border border-black/10 bg-white p-5 shadow-sm">
@@ -303,17 +528,60 @@ export function MatterDetailPage() {
               </div>
             ))}
           </div>
+          <form onSubmit={handleChecklistSubmit} className="mt-4 rounded-md bg-wheat p-4">
+            <p className="text-sm font-semibold">Add checklist item</p>
+            {checklistError ? (
+              <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+                {checklistError}
+              </div>
+            ) : null}
+            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_0.7fr]">
+              <input
+                required
+                value={checklistForm.title}
+                onChange={(event) => updateChecklistField("title", event.target.value)}
+                placeholder="Passport bio page"
+                className="form-input"
+              />
+              <input
+                value={checklistForm.category}
+                onChange={(event) => updateChecklistField("category", event.target.value)}
+                placeholder="IDENTITY"
+                className="form-input"
+              />
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-[0.8fr_1fr]">
+              <input
+                type="date"
+                value={checklistForm.dueOn ?? ""}
+                onChange={(event) => updateChecklistField("dueOn", event.target.value)}
+                className="form-input"
+              />
+              <label className="flex items-center gap-2 text-sm font-semibold text-ink/70">
+                <input
+                  type="checkbox"
+                  checked={checklistForm.required}
+                  onChange={(event) => updateChecklistField("required", event.target.checked)}
+                />
+                Required
+              </label>
+            </div>
+            <button
+              type="submit"
+              disabled={createChecklistMutation.isPending}
+              className="mt-3 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
+            >
+              {createChecklistMutation.isPending ? "Adding..." : "Add checklist item"}
+            </button>
+          </form>
         </section>
       </div>
 
       <section className="mt-6 rounded-lg border border-black/10 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2">
           <Upload size={18} />
-          <h2 className="text-lg font-semibold">Upload Document Metadata</h2>
+          <h2 className="text-lg font-semibold">Upload Document</h2>
         </div>
-        <p className="mt-1 text-sm text-ink/55">
-          This MVP records upload metadata and links it to a checklist item. Real file storage comes later.
-        </p>
 
         {uploadError ? (
           <div className="mt-4 rounded-md bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
@@ -325,12 +593,11 @@ export function MatterDetailPage() {
           <label className="block">
             <span className="text-sm font-semibold">Checklist item</span>
             <select
-              required
               value={uploadForm.checklistItemId}
               onChange={(event) => updateUploadField("checklistItemId", event.target.value)}
               className="form-input mt-2"
             >
-              <option value="">Select item</option>
+              <option value="">General matter document</option>
               {matter.checklistItems.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title}
@@ -358,6 +625,28 @@ export function MatterDetailPage() {
               onChange={(event) => updateUploadField("fileName", event.target.value)}
               placeholder="passport.pdf"
               className="form-input mt-2"
+            />
+            <input
+              type="file"
+              accept=".pdf,.docx,.jpg,.jpeg"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                void fileToBase64(file).then((fileContentBase64) => {
+                  setUploadForm((current) => ({
+                    ...current,
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.name.toLowerCase().endsWith(".docx")
+                      ? "DOCX"
+                      : file.type.includes("image")
+                        ? "JPG"
+                        : "PDF",
+                    fileContentBase64
+                  }));
+                });
+              }}
+              className="mt-2 block w-full text-xs text-ink/60"
             />
           </label>
 
@@ -393,50 +682,80 @@ export function MatterDetailPage() {
           <h2 className="text-lg font-semibold">Document Review</h2>
         </div>
         <p className="mt-1 text-sm text-ink/55">
-          Verify accepted documents or reject them so the checklist returns to an action state.
+          Verify accepted documents, reject them, or send clean documents for mock DocuSign e-signature.
         </p>
+        {signatureStatus ? (
+          <div className="mt-4 rounded-md bg-mint px-4 py-3 text-sm font-semibold text-ink">
+            {signatureStatus}
+          </div>
+        ) : null}
 
         <div className="mt-4 space-y-3">
           {matter.documents.length ? (
             matter.documents.map((document) => (
               <div
                 key={document.id}
-                className="flex flex-col gap-3 rounded-md border border-black/10 p-4 lg:flex-row lg:items-center lg:justify-between"
+                className="rounded-md border border-black/10 p-4"
               >
-                <div>
-                  <p className="font-semibold">{document.title}</p>
-                  <p className="mt-1 text-sm text-ink/55">
-                    {document.fileType} · uploaded by {document.uploadedBy} · updated {document.updatedAt}
-                  </p>
-                  {document.verifiedBy ? (
-                    <p className="mt-1 text-xs font-semibold text-emerald-700">
-                      Verified by {document.verifiedBy}
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="font-semibold">{document.title}</p>
+                    <p className="mt-1 text-sm text-ink/55">
+                      {document.fileType} · uploaded by {document.uploadedBy} · updated {document.updatedAt}
                     </p>
-                  ) : null}
+                    <p className="mt-1 text-xs text-ink/50">
+                      Scan: {document.scanStatus ?? "PENDING"} · Storage: {document.storageProvider ?? "local"}
+                    </p>
+                    {document.verifiedBy ? (
+                      <p className="mt-1 text-xs font-semibold text-emerald-700">
+                        Verified by {document.verifiedBy}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={document.status} />
+                    <StatusBadge status={document.scanStatus ?? "PENDING"} />
+                    <button
+                      type="button"
+                      disabled={documentAiReviewMutation.isPending}
+                      onClick={() => documentAiReviewMutation.mutate(document.id)}
+                      className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-moss hover:text-moss disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      AI Review
+                    </button>
+                    <button
+                      type="button"
+                      disabled={document.status === "VERIFIED" || document.scanStatus !== "CLEAN" || documentReviewMutation.isPending}
+                      onClick={() =>
+                        documentReviewMutation.mutate({ documentId: document.id, status: "VERIFIED" })
+                      }
+                      className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-emerald-600 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Verify
+                    </button>
+                    <button
+                      type="button"
+                      disabled={document.status === "REJECTED" || documentReviewMutation.isPending}
+                      onClick={() =>
+                        documentReviewMutation.mutate({ documentId: document.id, status: "REJECTED" })
+                      }
+                      className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-rose-600 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={document.scanStatus !== "CLEAN" || signatureMutation.isPending}
+                      onClick={() => signatureMutation.mutate(document.id)}
+                      className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-coral hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Send E-Sign
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={document.status} />
-                  <button
-                    type="button"
-                    disabled={document.status === "VERIFIED" || documentReviewMutation.isPending}
-                    onClick={() =>
-                      documentReviewMutation.mutate({ documentId: document.id, status: "VERIFIED" })
-                    }
-                    className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-emerald-600 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Verify
-                  </button>
-                  <button
-                    type="button"
-                    disabled={document.status === "REJECTED" || documentReviewMutation.isPending}
-                    onClick={() =>
-                      documentReviewMutation.mutate({ documentId: document.id, status: "REJECTED" })
-                    }
-                    className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-rose-600 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Reject
-                  </button>
-                </div>
+                {documentAiReviews[document.id] ? (
+                  <AiDocumentReviewPanel review={documentAiReviews[document.id]!} />
+                ) : null}
               </div>
             ))
           ) : (
@@ -596,21 +915,60 @@ export function MatterDetailPage() {
           </div>
 
           <form onSubmit={handleMessageSubmit} className="rounded-md bg-wheat p-4">
-            <p className="text-sm font-semibold">Add internal note</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold">Draft message or internal note</p>
+              <label className="block">
+                <span className="sr-only">Visibility</span>
+                <select
+                  value={messageVisibility}
+                  onChange={(event) => setMessageVisibility(event.target.value as "INTERNAL" | "EXTERNAL")}
+                  className="form-input h-10 text-xs font-semibold"
+                >
+                  <option value="INTERNAL">Internal note</option>
+                  <option value="EXTERNAL">Client message</option>
+                </select>
+              </label>
+            </div>
             {messageError ? (
               <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
                 {messageError}
               </div>
             ) : null}
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <DraftButton
+                label="Document request"
+                intent="DOCUMENT_REQUEST"
+                pending={messageDraftMutation.isPending}
+                onClick={(intent) => messageDraftMutation.mutate(intent)}
+              />
+              <DraftButton
+                label="Invoice follow-up"
+                intent="INVOICE_FOLLOW_UP"
+                pending={messageDraftMutation.isPending}
+                onClick={(intent) => messageDraftMutation.mutate(intent)}
+              />
+              <DraftButton
+                label="Status update"
+                intent="STATUS_UPDATE"
+                pending={messageDraftMutation.isPending}
+                onClick={(intent) => messageDraftMutation.mutate(intent)}
+              />
+            </div>
+            {draftMeta ? (
+              <p className="mt-3 rounded-md bg-white/70 px-3 py-2 text-xs font-semibold text-ink/55">
+                Drafted as client message by {draftMeta.provider} · {draftMeta.model} · {draftMeta.subject}
+              </p>
+            ) : null}
             <textarea
               required
-              rows={6}
+              rows={8}
               value={messageBody}
               onChange={(event) => {
                 setMessageError("");
+                setDraftMeta(null);
                 setMessageBody(event.target.value);
               }}
-              placeholder="Record internal advice, follow-up, or case context"
+              placeholder="Draft a client message or record internal advice"
               className="form-input mt-3 resize-none"
             />
             <button
@@ -627,11 +985,191 @@ export function MatterDetailPage() {
   );
 }
 
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function dateOffset(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 async function refreshMatter(queryClient: ReturnType<typeof useQueryClient>, matterId: string) {
   await queryClient.invalidateQueries({ queryKey: ["matter", matterId] });
   await queryClient.invalidateQueries({ queryKey: ["matters"] });
   await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   await queryClient.invalidateQueries({ queryKey: ["audit-events"] });
+}
+
+function AiMatterBriefPanel({ brief }: { brief: AiMatterBrief }) {
+  const riskClass =
+    brief.riskLevel === "HIGH"
+      ? "bg-rose-50 text-rose-800"
+      : brief.riskLevel === "MEDIUM"
+        ? "bg-amber-50 text-amber-800"
+        : "bg-emerald-50 text-emerald-800";
+
+  return (
+    <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_0.9fr]">
+      <div className="rounded-md bg-wheat p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${riskClass}`}>
+            {brief.riskLevel} risk
+          </span>
+          <span className="text-xs font-semibold text-ink/45">
+            {brief.provider} · {brief.model} · {new Date(brief.generatedAt).toLocaleString()}
+          </span>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-ink/70">{brief.summary}</p>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <BriefList title="Blockers" items={brief.blockers} />
+          <BriefList title="Next actions" items={brief.nextActions} />
+          <BriefList title="Compliance notes" items={brief.complianceNotes} />
+          <BriefList title="Automation suggestions" items={brief.automationSuggestions} />
+        </div>
+      </div>
+
+      <div className="rounded-md border border-black/10 p-4">
+        <p className="text-sm font-semibold">Client message draft</p>
+        <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm leading-6 text-ink/70">
+          {brief.clientMessageDraft}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function AiWorkflowSuggestionPanel({ suggestion }: { suggestion: AiWorkflowSuggestion }) {
+  return (
+    <div className="mt-5 rounded-md bg-wheat p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+          Recommend {suggestion.recommendedStage.replaceAll("_", " ")}
+        </span>
+        <span className="text-xs font-semibold text-ink/45">
+          {suggestion.provider} · {suggestion.model} · {new Date(suggestion.generatedAt).toLocaleString()}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-ink/70">{suggestion.stageRationale}</p>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div>
+          <p className="text-sm font-semibold">Suggested tasks</p>
+          <div className="mt-2 space-y-2">
+            {suggestion.suggestedTasks.map((task) => (
+              <div key={`${task.title}-${task.dueInDays}`} className="rounded-md bg-white/75 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{task.title}</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                    {task.priority} · {task.dueInDays}d
+                  </span>
+                </div>
+                <p className="mt-1 text-sm leading-6 text-ink/65">{task.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold">Suggested checklist</p>
+          <div className="mt-2 space-y-2">
+            {suggestion.suggestedChecklistItems.map((item) => (
+              <div key={`${item.title}-${item.category}`} className="rounded-md bg-white/75 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{item.title}</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                    {item.category} · {item.required ? "Required" : "Optional"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm leading-6 text-ink/65">{item.reason}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <BriefList title="Automation suggestions" items={suggestion.automationSuggestions} />
+        <BriefList title="Risk flags" items={suggestion.riskFlags} />
+      </div>
+    </div>
+  );
+}
+
+function AiDocumentReviewPanel({ review }: { review: AiDocumentReview }) {
+  const recommendationClass =
+    review.recommendation === "VERIFY"
+      ? "bg-emerald-50 text-emerald-800"
+      : review.recommendation === "REJECT"
+        ? "bg-rose-50 text-rose-800"
+        : "bg-amber-50 text-amber-800";
+
+  return (
+    <div className="mt-4 rounded-md bg-wheat p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${recommendationClass}`}>
+          {review.recommendation.replaceAll("_", " ")}
+        </span>
+        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-ink/60">
+          {review.confidence} confidence
+        </span>
+        <span className="text-xs font-semibold text-ink/45">
+          {review.provider} · {review.model} · {new Date(review.generatedAt).toLocaleString()}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-ink/70">{review.summary}</p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <BriefList title="Findings" items={review.findings} />
+        <BriefList title="Risks" items={review.risks} />
+        <BriefList title="Compliance" items={review.complianceNotes} />
+        <BriefList title="Next steps" items={review.nextSteps} />
+      </div>
+    </div>
+  );
+}
+
+function BriefList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold">{title}</p>
+      <ul className="mt-2 space-y-2 text-sm leading-6 text-ink/65">
+        {items.map((item) => (
+          <li key={item} className="rounded-md bg-white/75 px-3 py-2">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DraftButton({
+  label,
+  intent,
+  pending,
+  onClick
+}: {
+  label: string;
+  intent: AiMessageDraftIntent;
+  pending: boolean;
+  onClick: (intent: AiMessageDraftIntent) => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => onClick(intent)}
+      className="inline-flex items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 py-2 text-xs font-semibold hover:border-moss hover:text-moss disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <Sparkles size={14} />
+      {pending ? "Drafting..." : label}
+    </button>
+  );
 }
 
 function SummaryPanel({

@@ -61,6 +61,92 @@ export type MatterDetail = Matter & {
   }>;
 };
 
+export type AiMatterBrief = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  blockers: string[];
+  nextActions: string[];
+  complianceNotes: string[];
+  automationSuggestions: string[];
+  clientMessageDraft: string;
+};
+
+export type AiMessageDraftIntent = "DOCUMENT_REQUEST" | "INVOICE_FOLLOW_UP" | "STATUS_UPDATE";
+
+export type AiMessageDraft = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  intent: AiMessageDraftIntent;
+  subject: string;
+  draft: string;
+};
+
+export type AiDocumentReview = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  recommendation: "VERIFY" | "REJECT" | "NEEDS_REVIEW";
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  findings: string[];
+  risks: string[];
+  complianceNotes: string[];
+  nextSteps: string[];
+};
+
+export type MatterStage = "INTAKE" | "DOCUMENTS" | "LODGEMENT" | "CASE_OFFICER_REQUEST" | "DECISION" | "ARCHIVED";
+
+export type AiWorkflowSuggestion = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  recommendedStage: MatterStage;
+  stageRationale: string;
+  suggestedTasks: Array<{
+    title: string;
+    description: string;
+    dueInDays: number;
+    priority: "LOW" | "MEDIUM" | "HIGH";
+  }>;
+  suggestedChecklistItems: Array<{
+    title: string;
+    category: string;
+    required: boolean;
+    reason: string;
+  }>;
+  automationSuggestions: string[];
+  riskFlags: string[];
+};
+
+export type AiMatterIntakePlan = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  intakeRisk: "LOW" | "MEDIUM" | "HIGH";
+  recommendedVisaSubclass: string;
+  summary: string;
+  readinessChecks: string[];
+  suggestedTasks: Array<{
+    title: string;
+    description: string;
+    dueInDays: number;
+    priority: "LOW" | "MEDIUM" | "HIGH";
+  }>;
+  suggestedChecklistItems: Array<{
+    title: string;
+    category: string;
+    required: boolean;
+    reason: string;
+  }>;
+  clientQuestions: string[];
+  complianceNotes: string[];
+  automationSuggestions: string[];
+};
+
 export type WorkflowTemplate = {
   id: string;
   visaSubclass: string;
@@ -93,11 +179,12 @@ export type MatterFromTemplatePayload = {
 };
 
 export type DocumentUploadPayload = {
-  checklistItemId: string;
+  checklistItemId?: string;
   title: string;
   fileName: string;
   fileType: "PDF" | "DOCX" | "JPG";
   fileSize: number;
+  fileContentBase64?: string;
 };
 
 export type InvoicePayload = {
@@ -106,6 +193,19 @@ export type InvoicePayload = {
   tax: number;
   dueOn: string;
   status: "DRAFT" | "SENT";
+};
+
+export type MatterTaskPayload = {
+  title: string;
+  description?: string;
+  dueOn: string;
+};
+
+export type MatterChecklistPayload = {
+  title: string;
+  category: string;
+  dueOn?: string;
+  required: boolean;
 };
 
 export type MessagePayload = {
@@ -121,6 +221,12 @@ export type DocumentRecord = {
   uploadedBy: string;
   verifiedBy: string | null;
   updatedAt: string;
+  scanStatus?: string;
+  scanMessage?: string | null;
+  storageProvider?: string;
+  storageKey?: string;
+  checksum?: string | null;
+  verifiedAt?: string | null;
 };
 
 export type Invoice = {
@@ -245,6 +351,46 @@ export type Report = {
   }>;
 };
 
+export type AiReportInsights = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  overallHealth: "LOW_RISK" | "WATCH" | "AT_RISK";
+  executiveSummary: string;
+  pipelineInsights: string[];
+  revenueInsights: string[];
+  deadlineRisks: string[];
+  workloadRisks: string[];
+  recommendedActions: string[];
+};
+
+export type AiComplianceReview = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  compliancePosture: "GOOD" | "WATCH" | "ACTION_REQUIRED";
+  summary: string;
+  privacyNotes: string[];
+  retentionNotes: string[];
+  documentSecurityNotes: string[];
+  integrationNotes: string[];
+  auditFindings: string[];
+  recommendedActions: string[];
+};
+
+export type AiPortalGuidance = {
+  generatedAt: string;
+  provider: "openai" | "local-demo-ai";
+  model: string;
+  tone: "REASSURING" | "ACTION_NEEDED" | "URGENT";
+  statusSummary: string;
+  nextStep: string;
+  outstandingItems: string[];
+  paymentReminder: string;
+  messageDraft: string;
+  importantNotes: string[];
+};
+
 export type PortalSummary = {
   matterId: string;
   clientName: string;
@@ -299,4 +445,80 @@ export type AuditResponse = {
     actions: string[];
     actors: string[];
   };
+};
+
+export type TenantSettingsPayload = {
+  brandColor: string;
+  retentionYears: number;
+  taxRate: number;
+  privacyContactEmail?: string;
+  stripeMode: "mock" | "live";
+  docusignMode: "mock" | "live";
+  emailProvider: "mock" | "sendgrid" | "ses";
+};
+
+export type RetentionRequestPayload = {
+  clientId?: string;
+  action: "EXPORT" | "ERASURE" | "ARCHIVE_REVIEW";
+  reason: string;
+};
+
+export type ComplianceCenter = {
+  settings: TenantSettingsPayload & {
+    tenantName: string;
+    dataRegion: string;
+    deletionApproverRole: string;
+  };
+  documentSecurity: {
+    total: number;
+    clean: number;
+    pending: number;
+    blocked: number;
+    recent: Array<{
+      id: string;
+      title: string;
+      status: string;
+      scanStatus: string;
+      storageProvider: string;
+      scannedAt: string | null;
+    }>;
+  };
+  notifications: Array<{
+    id: string;
+    recipient: string;
+    subject: string;
+    status: string;
+    provider: string;
+    sentAt: string | null;
+    createdAt: string;
+  }>;
+  retentionRequests: Array<{
+    id: string;
+    clientName: string;
+    action: string;
+    reason: string;
+    status: string;
+    requestedBy: string;
+    approvedBy: string | null;
+    requestedAt: string;
+    completedAt: string | null;
+  }>;
+  integrationEvents: Array<{
+    id: string;
+    provider: string;
+    eventType: string;
+    status: string;
+    externalId: string | null;
+    receivedAt: string;
+  }>;
+};
+
+export type SignatureEnvelope = {
+  id: string;
+  envelopeId: string;
+  documentId?: string;
+  status: string;
+  signingUrl?: string | null;
+  completedAt?: string | null;
+  certificateStorageKey?: string | null;
 };

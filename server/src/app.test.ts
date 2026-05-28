@@ -125,10 +125,19 @@ async function cleanupIntegrationData() {
   await prisma.client.deleteMany({
     where: {
       tenantId,
-      email: {
-        startsWith: integrationEmailPrefix,
-        endsWith: "@asun.integration.test"
-      }
+      OR: [
+        {
+          email: {
+            startsWith: integrationEmailPrefix,
+            endsWith: "@asun.integration.test"
+          }
+        },
+        {
+          id: {
+            in: [...createdEntityIds]
+          }
+        }
+      ]
     }
   });
 
@@ -269,6 +278,26 @@ describe("ASUN Migrations API", () => {
     const template = templatesResponse.body.data.find((item: { visaSubclass: string }) => item.visaSubclass === "482");
     expect(template).toBeDefined();
 
+    const intakePlanResponse = await request(app)
+      .post("/api/matters/ai-intake-plan")
+      .set("x-demo-user-id", "rma-demo")
+      .send({
+        clientId,
+        templateId: template.id,
+        keyDate: "2099-07-01"
+      })
+      .expect(200);
+
+    expect(intakePlanResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      recommendedVisaSubclass: "482",
+      intakeRisk: expect.any(String),
+      summary: expect.stringContaining("Integration Client")
+    });
+    expect(intakePlanResponse.body.data.suggestedTasks.length).toBeGreaterThan(0);
+    expect(intakePlanResponse.body.data.suggestedChecklistItems.length).toBeGreaterThan(0);
+
     const matterResponse = await request(app)
       .post("/api/matters/from-template")
       .set("x-demo-user-id", "rma-demo")
@@ -298,6 +327,51 @@ describe("ASUN Migrations API", () => {
       status: "REQUESTED"
     });
 
+    const taskCreateResponse = await request(app)
+      .post(`/api/matters/${matterId}/tasks`)
+      .set("x-demo-user-id", "rma-demo")
+      .send({
+        title: "Call client about new evidence",
+        description: "Confirm whether additional identity evidence is available.",
+        dueOn: "2099-07-05"
+      })
+      .expect(201);
+
+    expect(taskCreateResponse.body.data.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Call client about new evidence",
+          status: "OPEN"
+        })
+      ])
+    );
+    const createdTask = taskCreateResponse.body.data.tasks.find(
+      (item: { title: string }) => item.title === "Call client about new evidence"
+    );
+
+    const checklistCreateResponse = await request(app)
+      .post(`/api/matters/${matterId}/checklist-items`)
+      .set("x-demo-user-id", "rma-demo")
+      .send({
+        title: "Updated passport scan",
+        category: "IDENTITY",
+        dueOn: "2099-07-05",
+        required: true
+      })
+      .expect(201);
+
+    expect(checklistCreateResponse.body.data.checklistItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Updated passport scan",
+          status: "REQUESTED"
+        })
+      ])
+    );
+    const createdChecklist = checklistCreateResponse.body.data.checklistItems.find(
+      (item: { title: string }) => item.title === "Updated passport scan"
+    );
+
     const uploadResponse = await request(app)
       .post(`/api/matters/${matterId}/documents`)
       .set("x-demo-user-id", "case-officer-demo")
@@ -306,7 +380,8 @@ describe("ASUN Migrations API", () => {
         title: "Passport bio page",
         fileName: "passport.pdf",
         fileType: "PDF",
-        fileSize: 128000
+        fileSize: 128000,
+        fileContentBase64: Buffer.from("Integration PDF content").toString("base64")
       })
       .expect(201);
 
@@ -314,7 +389,32 @@ describe("ASUN Migrations API", () => {
     createdEntityIds.add(document.id);
     expect(document).toMatchObject({
       status: "RECEIVED",
-      uploadedBy: "Sophie Nguyen"
+      uploadedBy: "Sophie Nguyen",
+      storageProvider: "local",
+      scanStatus: "CLEAN"
+    });
+    expect(document.storageKey).toContain(matterId);
+    expect(document.checksum).toHaveLength(64);
+
+    const generalUploadResponse = await request(app)
+      .post(`/api/matters/${matterId}/documents`)
+      .set("x-demo-user-id", "case-officer-demo")
+      .send({
+        title: "General identity note",
+        fileName: "general-note.pdf",
+        fileType: "PDF",
+        fileSize: 64000,
+        fileContentBase64: Buffer.from("General matter document").toString("base64")
+      })
+      .expect(201);
+
+    const generalDocument = generalUploadResponse.body.data.documents.find(
+      (item: { title: string }) => item.title === "General identity note"
+    );
+    createdEntityIds.add(generalDocument.id);
+    expect(generalDocument).toMatchObject({
+      status: "RECEIVED",
+      scanStatus: "CLEAN"
     });
 
     const reviewResponse = await request(app)
@@ -328,9 +428,21 @@ describe("ASUN Migrations API", () => {
       verifiedBy: "Daniel Cho"
     });
 
+    const documentAiReviewResponse = await request(app)
+      .post(`/api/documents/${document.id}/ai-review`)
+      .set("x-demo-user-id", "rma-demo")
+      .expect(200);
+
+    expect(documentAiReviewResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      recommendation: expect.any(String),
+      summary: expect.stringContaining("Passport bio page")
+    });
+
     const invoiceResponse = await request(app)
       .post(`/api/matters/${matterId}/invoices`)
-      .set("x-demo-user-id", "finance-demo")
+      .set("x-demo-user-id", "rma-demo")
       .send({
         description: "Professional service fee",
         subtotal: 1000,
@@ -356,10 +468,127 @@ describe("ASUN Migrations API", () => {
       status: "PAID"
     });
 
+    const aiBriefResponse = await request(app)
+      .post(`/api/matters/${matterId}/ai-brief`)
+      .set("x-demo-user-id", "rma-demo")
+      .expect(200);
+
+    expect(aiBriefResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      riskLevel: expect.any(String),
+      summary: expect.stringContaining("Integration Client")
+    });
+    expect(aiBriefResponse.body.data.nextActions.length).toBeGreaterThan(0);
+    expect(aiBriefResponse.body.data.clientMessageDraft).toContain("Hi Integration");
+
+    const workflowSuggestionsResponse = await request(app)
+      .post(`/api/matters/${matterId}/ai-workflow-suggestions`)
+      .set("x-demo-user-id", "rma-demo")
+      .expect(200);
+
+    expect(workflowSuggestionsResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      recommendedStage: expect.any(String),
+      stageRationale: expect.any(String)
+    });
+    expect(workflowSuggestionsResponse.body.data.suggestedTasks.length).toBeGreaterThan(0);
+    expect(workflowSuggestionsResponse.body.data.suggestedChecklistItems.length).toBeGreaterThan(0);
+
+    const messageDraftResponse = await request(app)
+      .post(`/api/matters/${matterId}/ai-message-draft`)
+      .set("x-demo-user-id", "rma-demo")
+      .send({ intent: "DOCUMENT_REQUEST" })
+      .expect(200);
+
+    expect(messageDraftResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      intent: "DOCUMENT_REQUEST",
+      draft: expect.stringContaining("Hi Integration")
+    });
+
+    const receiptResponse = await request(app)
+      .get(`/api/invoices/${invoice.id}/receipt.pdf`)
+      .set("x-demo-user-id", "finance-demo")
+      .expect(200);
+
+    expect(receiptResponse.headers["content-type"]).toContain("application/pdf");
+    expect(receiptResponse.headers["content-disposition"]).toContain(`${invoice.number}-receipt.pdf`);
+
+    const xlsxResponse = await request(app)
+      .get("/api/reports/export-xlsx?type=pipeline")
+      .set("x-demo-user-id", "rma-demo")
+      .expect(200);
+
+    expect(xlsxResponse.headers["content-type"]).toContain(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    const reportInsightsResponse = await request(app)
+      .post("/api/reports/ai-insights")
+      .set("x-demo-user-id", "rma-demo")
+      .expect(200);
+
+    expect(reportInsightsResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      overallHealth: expect.any(String),
+      executiveSummary: expect.any(String)
+    });
+    expect(reportInsightsResponse.body.data.recommendedActions.length).toBeGreaterThan(0);
+
+    const complianceReviewResponse = await request(app)
+      .post("/api/compliance/ai-review")
+      .set("x-demo-user-id", "agency-admin-demo")
+      .expect(200);
+
+    expect(complianceReviewResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      compliancePosture: expect.any(String),
+      summary: expect.any(String)
+    });
+    expect(complianceReviewResponse.body.data.recommendedActions.length).toBeGreaterThan(0);
+
+    const portalGuidanceResponse = await request(app)
+      .post("/api/portal/ai-guidance")
+      .set("x-demo-user-id", "client-demo")
+      .expect(200);
+
+    expect(portalGuidanceResponse.body.data).toMatchObject({
+      provider: "local-demo-ai",
+      model: "rules-v1",
+      tone: expect.any(String),
+      statusSummary: expect.any(String),
+      messageDraft: expect.any(String)
+    });
+    expect(portalGuidanceResponse.body.data.importantNotes.length).toBeGreaterThan(0);
+
+    const retentionResponse = await request(app)
+      .post("/api/compliance/retention-requests")
+      .set("x-demo-user-id", "agency-admin-demo")
+      .send({
+        clientId,
+        action: "ERASURE",
+        reason: "Integration test erasure completion"
+      })
+      .expect(201);
+
+    await request(app)
+      .patch(`/api/compliance/retention-requests/${retentionResponse.body.data.retentionRequests[0].id}`)
+      .set("x-demo-user-id", "agency-admin-demo")
+      .send({ status: "COMPLETED" })
+      .expect(200);
+
+    const erasedClient = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+    expect(erasedClient.name).toMatch(/^Erased Client/);
+    expect(erasedClient.portalActive).toBe(false);
+
     const auditEvents = await prisma.auditEvent.findMany({
       where: {
         tenantId,
-        entityId: { in: [clientId, matterId, document.id, invoice.id] }
+        entityId: { in: [clientId, matterId, createdTask.id, createdChecklist.id, document.id, invoice.id] }
       },
       select: { action: true }
     });
@@ -367,12 +596,36 @@ describe("ASUN Migrations API", () => {
     expect(auditEvents.map((event) => event.action)).toEqual(
       expect.arrayContaining([
         "client.created",
+        "ai.matter_intake_plan_generated",
         "matter.created_from_template",
+        "task.created",
+        "checklist.created",
         "document.uploaded",
         "document.verified",
+        "ai.document_review_generated",
         "invoice.created",
-        "invoice.paid"
+        "invoice.paid",
+        "ai.matter_brief_generated",
+        "ai.workflow_suggestions_generated",
+        "ai.message_draft_generated",
+        "receipt.generated",
+        "client.erased"
       ])
     );
+
+    const reportInsightAudit = await prisma.auditEvent.findFirst({
+      where: { tenantId, action: "ai.report_insights_generated" }
+    });
+    expect(reportInsightAudit).toBeTruthy();
+
+    const complianceReviewAudit = await prisma.auditEvent.findFirst({
+      where: { tenantId, action: "ai.compliance_review_generated" }
+    });
+    expect(complianceReviewAudit).toBeTruthy();
+
+    const portalGuidanceAudit = await prisma.auditEvent.findFirst({
+      where: { tenantId, action: "ai.portal_guidance_generated" }
+    });
+    expect(portalGuidanceAudit).toBeTruthy();
   });
 });

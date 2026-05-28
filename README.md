@@ -1,74 +1,254 @@
 # ASUN Migrations Platform
 
-A modern full-stack portfolio product based on the ASUN Migrations BRD. It demonstrates a multi-tenant SaaS CRM for Australian migration agencies: clients, matters, workflows, document compliance, billing, reporting, and a client portal.
+[![CI](https://github.com/gorvensalaveria/crm-modern/actions/workflows/ci.yml/badge.svg)](https://github.com/gorvensalaveria/crm-modern/actions/workflows/ci.yml)
 
-## Stack
+A modern full-stack portfolio product based on the ASUN Migrations BRD. The application models a SaaS CRM for Australian migration agencies: client intake, visa matters, workflow templates, document compliance, billing, reporting, audit logs, and a client portal.
+
+This is intentionally built as a presentation-friendly product. Instead of a login screen, the landing page lets reviewers choose a demo role and immediately explore the system from that user perspective.
+
+## What This Demonstrates
+
+- Full-stack TypeScript delivery across React, Express, Prisma, and shared contracts
+- Product thinking from a real BRD, not a generic CRUD sample
+- Role-aware UX for RMA, case officer, finance, admin, and client portal users
+- Server-side RBAC, validation, consistent API errors, and audit-friendly workflows
+- PostgreSQL-backed CRM workflows with Prisma models and seeded demo data
+- Automated tests, production build checks, and GitHub Actions CI
+
+## Tech Stack
 
 - React + Vite + TypeScript
 - Tailwind CSS
-- Node.js + Express + TypeScript
-- Shared TypeScript domain contracts
-- Zod validation
 - TanStack Query
+- React Router
 - Recharts
-- Lucide icons
+- Lucide React
+- Node.js + Express + TypeScript
+- OpenAI Responses API for optional live AI intake plans, case briefs, workflow recommendations, report insights, compliance reviews, and portal guidance
+- Prisma + PostgreSQL
+- Zod validation
+- Vitest + Supertest
+- Docker Compose
+- GitHub Actions
 
-## Product Focus
+## Core Features
 
-The app is designed to show employer-ready product thinking:
+- Demo role selector for portfolio presentation
+- Staff dashboard with workload, pipeline, deadline, and revenue signals
+- Client directory with create/edit/detail workflows
+- Matter creation from visa workflow templates
+- Matter workspace with stages, tasks, checklist items, documents, messages, and invoices
+- AI matter intake planning before matter creation, with readiness checks, suggested tasks, checklist items, client questions, and automation ideas
+- AI Matter Assistant that generates case briefs, blockers, next actions, compliance notes, automation suggestions, and client-message drafts from live matter data
+- AI workflow suggestions for staff-reviewed stage, task, checklist, automation, and risk guidance
+- AI client-message drafting for document requests, invoice follow-ups, and status updates, with editable internal/client visibility
+- AI document review notes with verification/rejection guidance, risk flags, and compliance reminders
+- AI report insights for manager-friendly pipeline, revenue, deadline, SLA, and workload summaries
+- AI compliance review for privacy settings, retention, document security, provider logs, notifications, and audit findings
+- AI portal guidance for client-friendly matter status, document, invoice, and next-step summaries
+- Document upload metadata, mock virus scanning, local storage metadata, checklist syncing, verification, rejection, and e-signature states
+- Billing page with invoice list, mock Stripe checkout, webhook-ready payment handling, paid status updates, and PDF receipts
+- Client portal for matter status, uploads, secure messages, and payments
+- Reporting dashboard with pipeline, revenue, SLA, deadline, and workload views
+- CSV and XLSX report exports with audit logging
+- Workflow template administration
+- Compliance centre for tenant settings, retention/erasure requests, document security, notifications, and integration event logs
+- Safe demo erasure flow that anonymizes client records instead of hard-deleting data
+- Audit event filtering
+- Frontend and backend RBAC for demo roles
+- Route-level code splitting for smaller initial client bundles
 
-- Operational dashboard for RMAs, case officers, finance, and admins
-- Client and matter management around visa subclasses
-- MARA and APP compliance signals with audit-ready activity
-- Document verification and e-signature workflow states
-- Stripe-ready billing and payment status modelling
-- Reporting views for pipeline, deadlines, SLA risks, and revenue
+## Optional OpenAI Setup
 
-## Implementation Docs
+The AI Matter Assistant works without external services by using a deterministic local fallback. To enable live OpenAI-generated intake plans, case briefs, workflow suggestions, message drafts, document review notes, report insights, compliance reviews, and portal guidance, add these values to `.env`:
 
-The implementation plan is documented in [`docs/README.md`](./docs/README.md). Start there for the product plan, architecture, data model, API plan, frontend UX plan, demo role strategy, and development roadmap.
+```bash
+OPENAI_API_KEY="your_api_key_here"
+OPENAI_MODEL="gpt-5.4-mini"
+AI_PROVIDER="openai"
+```
+
+Set `AI_PROVIDER="local"` when you want to force the no-cost deterministic demo mode.
+
+## Demo Roles
+
+The app uses demo users instead of authentication so an interviewer can immediately inspect the product.
+
+| Role | What to Review |
+| --- | --- |
+| ASUN Admin | Global admin areas, workflows, audit logs, reports |
+| Agency Admin | Agency-wide operations, workflow setup, compliance settings, retention requests, reporting |
+| RMA | Client and matter management, document review, e-signature workflow, reporting |
+| Case Officer | Matter execution, checklist updates, document uploads |
+| Finance Officer | Billing, invoice creation, payment tracking |
+| Client | Portal status, document upload, messages, invoice payment |
 
 ## Getting Started
+
+### Prerequisites
+
+- Node.js 20 or newer
+- Docker Desktop or another Docker runtime
+- npm
+
+### Local Setup
 
 ```bash
 npm install
 cp .env.example .env
 docker compose up -d postgres
+npm run db:generate
 npm run db:push
 npm run db:seed
 npm run dev
 ```
 
-The client runs on `http://localhost:5173` and the API runs on `http://localhost:4000`.
+The app runs at:
+
+- Client: `http://localhost:5173`
+- API: `http://localhost:4000`
+- Health check: `http://localhost:4000/api/health`
 
 ## Useful Scripts
 
 ```bash
-npm run build
-npm run typecheck
-npm run lint
-npm run db:generate
-npm run db:push
-npm run db:seed
-npm run db:studio
+npm run dev          # Start React and Express locally
+npm run typecheck    # Typecheck shared, server, and client workspaces
+npm run test         # Run Vitest/Supertest API tests
+npm run build        # Build shared, server, and client workspaces
+npm run db:generate  # Generate Prisma client
+npm run db:push      # Apply Prisma schema to local DB
+npm run db:seed      # Seed demo tenant, users, clients, matters, invoices, compliance logs
+npm run db:studio    # Open Prisma Studio
 ```
 
-## Repository Layout
+## Testing
+
+The server test suite uses Vitest and Supertest against the Express app. It includes lightweight API contract checks and a PostgreSQL-backed CRM integration workflow:
+
+1. Create client
+2. Fetch workflow template
+3. Create matter from template
+4. Generate an AI matter brief
+5. Upload document metadata with local file storage
+6. Verify scan-aware document review
+7. Create invoice
+8. Mock-pay invoice
+9. Generate receipt/export reports
+10. Confirm audit events
+
+Run tests with:
+
+```bash
+npm run test
+```
+
+## CI
+
+GitHub Actions runs on pushes to `main`/`master` and on pull requests. The workflow starts PostgreSQL, installs dependencies, prepares Prisma, typechecks, tests, and builds the full stack.
+
+Workflow file: [.github/workflows/ci.yml](./.github/workflows/ci.yml)
+
+## Browser QA
+
+Use [docs/qa-script.md](./docs/qa-script.md) for a manual browser QA walkthrough. It covers the full local demo path, including:
+
+- demo role selection
+- RBAC checks
+- client and matter workflows
+- AI Matter Assistant case brief generation
+- AI client-message drafting
+- AI document review notes
+- document scanning and review
+- mock DocuSign envelope creation
+- mock Stripe checkout/payment flows
+- PDF receipts and CSV/XLSX report exports
+- compliance settings
+- retention/erasure requests
+- notification and integration logs
+- audit log verification
+
+## Architecture
 
 ```text
-client/   React application and Tailwind UI
-server/   Express API with mock service layer
-shared/   Shared domain types and Zod schemas
+client/
+  React + Vite frontend
+  Demo role state, route guards, pages, API client, Tailwind UI
+
+server/
+  Express API
+  RBAC middleware, Zod validation, Prisma repository, API tests
+
+shared/
+  Shared TypeScript domain types and schemas
+
+prisma/
+  PostgreSQL schema and seed data
+
+docs/
+  BRD implementation plan, architecture, API plan, UX plan, roadmap
 ```
 
-## Demo API
+## API Highlights
 
 - `GET /api/health`
+- `GET /api/demo-users`
+- `POST /api/demo-session`
 - `GET /api/dashboard`
 - `GET /api/clients`
+- `POST /api/clients`
 - `GET /api/matters`
-- `GET /api/reports`
-- `GET /api/audit-events`
+- `POST /api/matters/ai-intake-plan`
+- `POST /api/matters/from-template`
+- `POST /api/matters/:matterId/ai-brief`
+- `POST /api/matters/:matterId/ai-workflow-suggestions`
+- `POST /api/matters/:matterId/ai-message-draft`
+- `POST /api/matters/:matterId/documents`
+- `PATCH /api/documents/:documentId/review`
+- `POST /api/envelopes`
+- `POST /api/webhook/docusign/status`
+- `POST /api/matters/:matterId/invoices`
+- `POST /api/invoices/:invoiceId/pay`
+- `GET /api/invoices/:invoiceId/receipt.pdf`
 - `POST /api/checkout/session/create`
 - `POST /api/webhook/stripe/payment`
-- `POST /api/envelopes`
+- `GET /api/reports`
+- `POST /api/reports/ai-insights`
+- `GET /api/reports/export`
+- `GET /api/reports/export-xlsx`
+- `GET /api/audit-events`
+- `GET /api/compliance`
+- `POST /api/compliance/ai-review`
+- `PATCH /api/compliance/settings`
+- `POST /api/compliance/retention-requests`
+- `PATCH /api/compliance/retention-requests/:retentionRequestId`
+- `GET /api/portal/summary`
+- `POST /api/portal/ai-guidance`
+
+Errors follow a consistent shape:
+
+```json
+{
+  "error": {
+    "code": "RBAC_403",
+    "message": "Role CLIENT cannot access this API endpoint"
+  }
+}
+```
+
+## Documentation
+
+The implementation plan lives in [docs/README.md](./docs/README.md), with supporting documents for:
+
+- Product implementation plan
+- Technical architecture
+- Data model
+- API contract plan
+- Frontend UX plan
+- Demo role strategy
+- Development roadmap
+- Browser QA script
+
+## Notes
+
+This project uses provider-ready mock integrations for Stripe, DocuSign, email notifications, and virus scanning. The AI features can use OpenAI when configured and fall back to deterministic local generation when no key is present. The code records integration events, notification delivery, scan status, and audit events so those mocks can be replaced with real providers in a production phase without changing the core CRM workflows.

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
@@ -6,14 +7,31 @@ import { z } from "zod";
 import { demoUsers } from "./data/demo-data.js";
 import {
   createClient,
+  createCheckoutSession,
+  createMatterChecklistItem,
   createMatterInvoice,
   createMatterMessage,
+  createMatterTask,
   createMatterFromTemplate,
+  createRetentionRequest,
+  createSignatureEnvelope,
   createWorkflowTemplate,
+  decideRetentionRequest,
   exportReportCsv,
+  exportReportXlsx,
+  generateComplianceReview,
+  generateInvoiceReceiptPdf,
+  generateDocumentAiReview,
+  generateMatterAiBrief,
+  generateMatterIntakePlan,
+  generateMatterMessageDraft,
+  generatePortalGuidance,
+  generateReportInsights,
+  generateWorkflowSuggestions,
   getAuditEvents,
   getClientById,
   getClients,
+  getComplianceCenter,
   getDashboard,
   getInvoices,
   getMatterById,
@@ -21,11 +39,14 @@ import {
   getPortalSummary,
   getReports,
   getWorkflowTemplates,
+  handleSignatureWebhook,
+  handleStripeWebhook,
   payInvoice,
   reviewDocument,
   updateChecklistStatus,
   updateClient,
   updateMatterStage,
+  updateTenantSettings,
   updateTaskStatus,
   uploadMatterDocument
 } from "./services/crm-repository.js";
@@ -34,7 +55,7 @@ export const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173" }));
-app.use(express.json());
+app.use(express.json({ limit: "30mb" }));
 
 type DemoRole = "ASUN_ADMIN" | "AGENCY_ADMIN" | "RMA" | "CASE_OFFICER" | "FINANCE" | "CLIENT";
 type ApiErrorCode =
@@ -52,6 +73,7 @@ type ApiErrorCode =
   | "MESSAGE_404"
   | "PAY_404"
   | "RBAC_403"
+  | "RETENTION_404"
   | "TASK_404"
   | "VALIDATION_400"
   | "WORKFLOW_409";
@@ -75,6 +97,7 @@ const roles = {
   clientRecords: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER"],
   matterOps: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER"],
   finance: ["ASUN_ADMIN", "AGENCY_ADMIN", "FINANCE"],
+  matterBilling: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "FINANCE"],
   reports: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "FINANCE"],
   admin: ["ASUN_ADMIN", "AGENCY_ADMIN"]
 } satisfies Record<string, DemoRole[]>;
@@ -202,6 +225,17 @@ app.get("/api/matters/:matterId", requireDemoRoles(roles.matterOps), async (req,
   res.json({ data: matter });
 });
 
+app.post("/api/matters/ai-intake-plan", requireDemoRoles(roles.matterOps), async (req, res) => {
+  const payload = parseRequest(createMatterFromTemplateSchema, req.body, "Invalid AI intake plan payload");
+
+  try {
+    const plan = await generateMatterIntakePlan(payload, req.header("x-demo-user-id") ?? undefined);
+    res.json({ data: plan });
+  } catch (error) {
+    requestFailed(error, 404, "MATTER_404", "Unable to generate AI matter intake plan");
+  }
+});
+
 app.post("/api/matters/from-template", requireDemoRoles(roles.matterOps), async (req, res) => {
   const payload = parseRequest(createMatterFromTemplateSchema, req.body, "Invalid matter payload");
 
@@ -225,6 +259,45 @@ app.patch("/api/matters/:matterId/stage", requireDemoRoles(roles.matterOps), asy
     res.json({ data: matter });
   } catch (error) {
     requestFailed(error, 404, "MATTER_404", "Unable to update matter stage");
+  }
+});
+
+app.post("/api/matters/:matterId/ai-brief", requireDemoRoles(roles.matterOps), async (req, res) => {
+  try {
+    const brief = await generateMatterAiBrief(
+      routeParam(req, "matterId"),
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.json({ data: brief });
+  } catch (error) {
+    requestFailed(error, 404, "MATTER_404", "Unable to generate matter AI brief");
+  }
+});
+
+app.post("/api/matters/:matterId/ai-workflow-suggestions", requireDemoRoles(roles.matterOps), async (req, res) => {
+  try {
+    const suggestions = await generateWorkflowSuggestions(
+      routeParam(req, "matterId"),
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.json({ data: suggestions });
+  } catch (error) {
+    requestFailed(error, 404, "MATTER_404", "Unable to generate AI workflow suggestions");
+  }
+});
+
+app.post("/api/matters/:matterId/ai-message-draft", requireDemoRoles(roles.matterOps), async (req, res) => {
+  const payload = parseRequest(aiMessageDraftSchema, req.body, "Invalid AI message draft payload");
+
+  try {
+    const draft = await generateMatterMessageDraft(
+      routeParam(req, "matterId"),
+      payload,
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.json({ data: draft });
+  } catch (error) {
+    requestFailed(error, 404, "MATTER_404", "Unable to generate AI message draft");
   }
 });
 
@@ -258,6 +331,36 @@ app.patch("/api/checklist-items/:checklistItemId/status", requireDemoRoles(roles
   }
 });
 
+app.post("/api/matters/:matterId/tasks", requireDemoRoles(roles.matterOps), async (req, res) => {
+  const payload = parseRequest(createMatterTaskSchema, req.body, "Invalid task payload");
+
+  try {
+    const matter = await createMatterTask(
+      routeParam(req, "matterId"),
+      payload,
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.status(201).json({ data: matter });
+  } catch (error) {
+    requestFailed(error, 400, "TASK_404", "Unable to create task");
+  }
+});
+
+app.post("/api/matters/:matterId/checklist-items", requireDemoRoles(roles.matterOps), async (req, res) => {
+  const payload = parseRequest(createMatterChecklistSchema, req.body, "Invalid checklist payload");
+
+  try {
+    const matter = await createMatterChecklistItem(
+      routeParam(req, "matterId"),
+      payload,
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.status(201).json({ data: matter });
+  } catch (error) {
+    requestFailed(error, 400, "CHECKLIST_404", "Unable to create checklist item");
+  }
+});
+
 app.post("/api/matters/:matterId/documents", requireDemoRoles(roles.clientMatterUpload), async (req, res) => {
   const payload = parseRequest(uploadDocumentSchema, req.body, "Invalid document payload");
 
@@ -288,7 +391,19 @@ app.patch("/api/documents/:documentId/review", requireDemoRoles(roles.matterOps)
   }
 });
 
-app.post("/api/matters/:matterId/invoices", requireDemoRoles(roles.finance), async (req, res) => {
+app.post("/api/documents/:documentId/ai-review", requireDemoRoles(roles.matterOps), async (req, res) => {
+  try {
+    const review = await generateDocumentAiReview(
+      routeParam(req, "documentId"),
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.json({ data: review });
+  } catch (error) {
+    requestFailed(error, 404, "DOC_404", "Unable to generate document AI review");
+  }
+});
+
+app.post("/api/matters/:matterId/invoices", requireDemoRoles(roles.matterBilling), async (req, res) => {
   const payload = parseRequest(createInvoiceSchema, req.body, "Invalid invoice payload");
 
   try {
@@ -354,6 +469,10 @@ app.get("/api/reports", requireDemoRoles(roles.reports), async (_req, res) => {
   res.json({ data: await getReports() });
 });
 
+app.post("/api/reports/ai-insights", requireDemoRoles(roles.reports), async (req, res) => {
+  res.json({ data: await generateReportInsights(req.header("x-demo-user-id") ?? undefined) });
+});
+
 app.get("/api/reports/export", requireDemoRoles(roles.reports), async (req, res) => {
   const query = parseRequest(reportExportSchema, req.query, "Invalid report export type");
 
@@ -361,6 +480,29 @@ app.get("/api/reports/export", requireDemoRoles(roles.reports), async (req, res)
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${exported.filename}"`);
   res.send(exported.csv);
+});
+
+app.get("/api/reports/export-xlsx", requireDemoRoles(roles.reports), async (req, res) => {
+  const query = parseRequest(reportExportSchema, req.query, "Invalid report export type");
+
+  const exported = await exportReportXlsx(query.type, req.header("x-demo-user-id") ?? undefined);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${exported.filename}"`);
+  res.send(exported.buffer);
+});
+
+app.get("/api/invoices/:invoiceId/receipt.pdf", requireDemoRoles(roles.clientAndFinance), async (req, res) => {
+  try {
+    const receipt = await generateInvoiceReceiptPdf(
+      routeParam(req, "invoiceId"),
+      req.header("x-demo-user-id") ?? undefined
+    );
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${receipt.filename}"`);
+    res.send(receipt.buffer);
+  } catch (error) {
+    requestFailed(error, 404, "INVOICE_400", "Unable to generate receipt");
+  }
 });
 
 app.get("/api/audit-events", requireDemoRoles(roles.admin), async (req, res) => {
@@ -379,34 +521,82 @@ app.get("/api/portal/summary", requireDemoRoles(roles.clientOps), async (_req, r
   res.json({ data: await getPortalSummary() });
 });
 
-app.post("/api/checkout/session/create", requireDemoRoles(roles.clientAndFinance), (req, res) => {
-  res.json({
-    data: {
-      invoiceId: req.body?.invoiceId ?? "inv-1001",
-      paymentUrl: "https://checkout.stripe.com/demo/asun-migrations",
-      mode: "mock"
-    }
-  });
+app.post("/api/portal/ai-guidance", requireDemoRoles(roles.clientOps), async (req, res) => {
+  res.json({ data: await generatePortalGuidance(req.header("x-demo-user-id") ?? undefined) });
 });
 
-app.post("/api/webhook/stripe/payment", (_req, res) => {
-  res.json({
-    data: {
-      received: true,
-      status: "succeeded"
-    }
-  });
+app.post("/api/checkout/session/create", requireDemoRoles(roles.clientAndFinance), async (req, res) => {
+  const payload = parseRequest(checkoutSessionSchema, req.body, "Invalid checkout payload");
+
+  try {
+    res.json({ data: await createCheckoutSession(payload.invoiceId, req.header("x-demo-user-id") ?? undefined) });
+  } catch (error) {
+    requestFailed(error, 404, "PAY_404", "Unable to create checkout session");
+  }
 });
 
-app.post("/api/envelopes", requireDemoRoles(roles.matterOps), (req, res) => {
-  res.status(201).json({
-    data: {
-      envelopeId: "env-demo-001",
-      matterId: req.body?.matterId,
-      documentId: req.body?.documentId,
-      status: "sent"
-    }
-  });
+app.post("/api/webhook/stripe/payment", async (req, res) => {
+  const payload = parseRequest(stripeWebhookSchema, req.body, "Invalid Stripe webhook payload");
+
+  try {
+    res.json({ data: await handleStripeWebhook(payload, req.header("x-demo-user-id") ?? undefined) });
+  } catch (error) {
+    requestFailed(error, 404, "PAY_404", "Unable to process Stripe webhook");
+  }
+});
+
+app.post("/api/envelopes", requireDemoRoles(roles.matterOps), async (req, res) => {
+  const payload = parseRequest(signatureEnvelopeSchema, req.body, "Invalid signature envelope payload");
+
+  try {
+    res.status(201).json({ data: await createSignatureEnvelope(payload, req.header("x-demo-user-id") ?? undefined) });
+  } catch (error) {
+    requestFailed(error, 400, "DOC_400", "Unable to create signature envelope");
+  }
+});
+
+app.post("/api/webhook/docusign/status", async (req, res) => {
+  const payload = parseRequest(signatureWebhookSchema, req.body, "Invalid DocuSign webhook payload");
+
+  try {
+    res.json({ data: await handleSignatureWebhook(payload, req.header("x-demo-user-id") ?? undefined) });
+  } catch (error) {
+    requestFailed(error, 404, "DOC_404", "Unable to process signature status");
+  }
+});
+
+app.get("/api/compliance", requireDemoRoles(roles.admin), async (_req, res) => {
+  res.json({ data: await getComplianceCenter() });
+});
+
+app.post("/api/compliance/ai-review", requireDemoRoles(roles.admin), async (req, res) => {
+  res.json({ data: await generateComplianceReview(req.header("x-demo-user-id") ?? undefined) });
+});
+
+app.patch("/api/compliance/settings", requireDemoRoles(roles.admin), async (req, res) => {
+  const payload = parseRequest(tenantSettingsSchema, req.body, "Invalid tenant settings payload");
+  res.json({ data: await updateTenantSettings(payload, req.header("x-demo-user-id") ?? undefined) });
+});
+
+app.post("/api/compliance/retention-requests", requireDemoRoles(roles.admin), async (req, res) => {
+  const payload = parseRequest(retentionRequestSchema, req.body, "Invalid retention request payload");
+  res.status(201).json({ data: await createRetentionRequest(payload, req.header("x-demo-user-id") ?? undefined) });
+});
+
+app.patch("/api/compliance/retention-requests/:retentionRequestId", requireDemoRoles(roles.admin), async (req, res) => {
+  const payload = parseRequest(retentionDecisionSchema, req.body, "Invalid retention decision payload");
+
+  try {
+    res.json({
+      data: await decideRetentionRequest(
+        routeParam(req, "retentionRequestId"),
+        payload,
+        req.header("x-demo-user-id") ?? undefined
+      )
+    });
+  } catch (error) {
+    requestFailed(error, 404, "RETENTION_404", "Unable to update retention request");
+  }
 });
 
 app.use("/api", (req, _res, next) => {
@@ -493,8 +683,35 @@ const updateChecklistStatusSchema = z.object({
   status: z.enum(["REQUESTED", "RECEIVED", "VERIFIED", "REJECTED"])
 });
 
+const aiMessageDraftSchema = z.object({
+  intent: z.enum(["DOCUMENT_REQUEST", "INVOICE_FOLLOW_UP", "STATUS_UPDATE"])
+});
+
+const createMatterTaskSchema = z.object({
+  title: z.string().trim().min(2, "Task title is required"),
+  description: z.string().trim().max(500).optional(),
+  dueOn: z.string().refine((value) => {
+    const date = new Date(value);
+    return !Number.isNaN(date.valueOf()) && date >= new Date(new Date().toDateString());
+  }, "Task due date must be today or later")
+});
+
+const createMatterChecklistSchema = z.object({
+  title: z.string().trim().min(2, "Checklist title is required"),
+  category: z.string().trim().min(2, "Checklist category is required"),
+  dueOn: z
+    .string()
+    .optional()
+    .refine((value) => {
+      if (!value) return true;
+      const date = new Date(value);
+      return !Number.isNaN(date.valueOf()) && date >= new Date(new Date().toDateString());
+    }, "Checklist due date must be today or later"),
+  required: z.boolean()
+});
+
 const uploadDocumentSchema = z.object({
-  checklistItemId: z.string().min(1, "Checklist item is required"),
+  checklistItemId: z.string().optional(),
   title: z.string().trim().min(2, "Document title is required"),
   fileName: z
     .string()
@@ -502,7 +719,8 @@ const uploadDocumentSchema = z.object({
     .min(3, "File name is required")
     .regex(/\.(pdf|docx|jpg|jpeg)$/i, "File name must end in PDF, DOCX, JPG, or JPEG"),
   fileType: z.enum(["PDF", "DOCX", "JPG"]),
-  fileSize: z.number().int().positive("File size must be greater than 0").max(25 * 1024 * 1024)
+  fileSize: z.number().int().positive("File size must be greater than 0").max(25 * 1024 * 1024),
+  fileContentBase64: z.string().optional()
 });
 
 const reviewDocumentSchema = z.object({
@@ -533,4 +751,45 @@ const createWorkflowTemplateSchema = z.object({
 
 const reportExportSchema = z.object({
   type: z.enum(["pipeline", "revenue", "sla", "deadlines", "workload"])
+});
+
+const checkoutSessionSchema = z.object({
+  invoiceId: z.string().min(1, "Invoice is required")
+});
+
+const stripeWebhookSchema = z.object({
+  invoiceId: z.string().min(1, "Invoice is required"),
+  eventType: z.string().trim().min(2, "Event type is required"),
+  status: z.enum(["succeeded", "failed"]),
+  providerPaymentId: z.string().optional()
+});
+
+const signatureEnvelopeSchema = z.object({
+  documentId: z.string().min(1, "Document is required"),
+  signerEmail: z.string().email("A valid signer email is required")
+});
+
+const signatureWebhookSchema = z.object({
+  envelopeId: z.string().min(1, "Envelope is required"),
+  status: z.enum(["completed", "declined", "expired"])
+});
+
+const tenantSettingsSchema = z.object({
+  brandColor: z.string().regex(/^#[0-9a-f]{6}$/i, "Brand color must be a hex color"),
+  retentionYears: z.number().int().min(1).max(30),
+  taxRate: z.number().min(0).max(100),
+  privacyContactEmail: z.string().email().optional().or(z.literal("")),
+  stripeMode: z.enum(["mock", "live"]),
+  docusignMode: z.enum(["mock", "live"]),
+  emailProvider: z.enum(["mock", "sendgrid", "ses"])
+});
+
+const retentionRequestSchema = z.object({
+  clientId: z.string().optional(),
+  action: z.enum(["EXPORT", "ERASURE", "ARCHIVE_REVIEW"]),
+  reason: z.string().trim().min(5, "Reason is required")
+});
+
+const retentionDecisionSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED", "COMPLETED"])
 });
