@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, BriefcaseBusiness, CalendarClock, DollarSign, Users } from "lucide-react";
+import { AlertTriangle, Banknote, BriefcaseBusiness, CalendarClock, Users } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { MetricCard } from "../components/MetricCard";
 import { PageHeader } from "../components/PageHeader";
@@ -53,7 +53,7 @@ export function DashboardPage() {
           label="Monthly revenue"
           value={`$${data.metrics.monthlyRevenue.toLocaleString()}`}
           helper="Paid and sent invoices"
-          icon={DollarSign}
+          icon={Banknote}
         />
         <MetricCard
           label="Portal adoption"
@@ -136,4 +136,3 @@ export function DashboardPage() {
     </div>
   );
 }
-
