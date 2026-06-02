@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
-import { demoUsers, mockApiRoutes, renderApp, storeDemoUser } from "./test/render-app";
+import { mockApiRoutes, renderApp, roleUsers, storeCurrentUser } from "./test/render-app";
 
 const dashboard = {
   metrics: {
@@ -87,10 +87,10 @@ const portalSummary = {
 };
 
 describe("ASUN Migrations frontend shell", () => {
-  it("lets an employer choose a demo role and enter the staff dashboard", async () => {
+  it("lets a user choose a role and enter the staff dashboard", async () => {
     const user = userEvent.setup();
     mockApiRoutes({
-      "/api/demo-users": demoUsers,
+      "/api/role-users": roleUsers,
       "/api/dashboard": dashboard
     });
 
@@ -99,25 +99,25 @@ describe("ASUN Migrations frontend shell", () => {
     expect(await screen.findByRole("heading", { name: "ASUN Migrations" })).toBeInTheDocument();
     expect(await screen.findByRole("option", { name: "Registered Migration Agent" })).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Demo persona"), "rma-demo");
+    await user.selectOptions(screen.getByLabelText("Role"), "user-rma");
     expect(screen.getByText("Daniel Cho")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /enter demo/i }));
+    await user.click(screen.getByRole("button", { name: /enter workspace/i }));
 
     expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Verify health check certificate")).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(JSON.parse(localStorage.getItem("asun-demo-user") ?? "{}")).toMatchObject({
-        id: "rma-demo",
+      expect(JSON.parse(localStorage.getItem("asun-current-user") ?? "{}")).toMatchObject({
+        id: "user-rma",
         role: "RMA"
       });
     });
   });
 
-  it("redirects protected workspace routes to the role picker when no demo user is selected", async () => {
+  it("redirects protected workspace routes to the role picker when no user is selected", async () => {
     mockApiRoutes({
-      "/api/demo-users": demoUsers
+      "/api/role-users": roleUsers
     });
 
     renderApp(<App />, "/app");
@@ -127,7 +127,7 @@ describe("ASUN Migrations frontend shell", () => {
   });
 
   it("blocks client users from staff-only routes in the browser", async () => {
-    storeDemoUser(demoUsers[2]!);
+    storeCurrentUser(roleUsers[2]!);
 
     renderApp(<App />, "/app/billing");
 
@@ -137,7 +137,7 @@ describe("ASUN Migrations frontend shell", () => {
   });
 
   it("sends client users to the portal workspace", async () => {
-    storeDemoUser(demoUsers[2]!);
+    storeCurrentUser(roleUsers[2]!);
     mockApiRoutes({
       "/api/portal/summary": portalSummary
     });

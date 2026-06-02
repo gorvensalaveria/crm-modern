@@ -1,4 +1,4 @@
-import type { DemoRole } from "../types";
+import type { AppRole } from "../types";
 
 export const routePermissions = {
   dashboard: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER", "FINANCE"],
@@ -10,11 +10,11 @@ export const routePermissions = {
   audit: ["ASUN_ADMIN", "AGENCY_ADMIN"],
   compliance: ["ASUN_ADMIN", "AGENCY_ADMIN"],
   portal: ["CLIENT"]
-} as const satisfies Record<string, readonly DemoRole[]>;
+} as const satisfies Record<string, readonly AppRole[]>;
 
 export type PermissionKey = keyof typeof routePermissions;
 
-export function canAccess(role: DemoRole | undefined, permission: PermissionKey) {
-  const allowedRoles: readonly DemoRole[] = routePermissions[permission];
+export function canAccess(role: AppRole | undefined, permission: PermissionKey) {
+  const allowedRoles: readonly AppRole[] = routePermissions[permission];
   return role ? allowedRoles.includes(role) : false;
 }

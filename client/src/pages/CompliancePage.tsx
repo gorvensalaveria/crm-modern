@@ -6,6 +6,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
 import type { AiComplianceReview, RetentionRequestPayload, TenantSettingsPayload } from "../types";
 import { FileCheck2, MailCheck, PlugZap, ShieldCheck, Sparkles } from "lucide-react";
+import { aiProviderLabel } from "../utils/ai";
 
 const emptyRetentionRequest: RetentionRequestPayload = {
   action: "ARCHIVE_REVIEW",
@@ -300,7 +301,7 @@ function AiComplianceReviewPanel({ review }: { review: AiComplianceReview }) {
           {review.compliancePosture.replaceAll("_", " ")}
         </span>
         <span className="text-xs font-semibold text-ink/45">
-          {review.provider} · {review.model} · {new Date(review.generatedAt).toLocaleString()}
+          {aiProviderLabel(review.provider)} · {review.model} · {new Date(review.generatedAt).toLocaleString()}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-ink/70">{review.summary}</p>

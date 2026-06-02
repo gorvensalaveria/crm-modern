@@ -5,6 +5,7 @@ import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
 import type { AiPortalGuidance, DocumentUploadPayload } from "../types";
+import { aiProviderLabel } from "../utils/ai";
 
 const emptyUpload: DocumentUploadPayload = {
   checklistItemId: "",
@@ -330,7 +331,7 @@ function AiPortalGuidancePanel({ guidance }: { guidance: AiPortalGuidance }) {
           {guidance.tone.replaceAll("_", " ")}
         </span>
         <span className="text-xs font-semibold text-ink/45">
-          {guidance.provider} · {guidance.model} · {new Date(guidance.generatedAt).toLocaleString()}
+          {aiProviderLabel(guidance.provider)} · {guidance.model} · {new Date(guidance.generatedAt).toLocaleString()}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-ink/70">{guidance.statusSummary}</p>

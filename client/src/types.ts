@@ -1,4 +1,4 @@
-export type DemoRole =
+export type AppRole =
   | "ASUN_ADMIN"
   | "AGENCY_ADMIN"
   | "RMA"
@@ -6,10 +6,10 @@ export type DemoRole =
   | "FINANCE"
   | "CLIENT";
 
-export type DemoUser = {
+export type AppUser = {
   id: string;
   name: string;
-  role: DemoRole;
+  role: AppRole;
   title: string;
   description: string;
 };

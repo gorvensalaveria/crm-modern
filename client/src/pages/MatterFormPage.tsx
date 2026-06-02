@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { api } from "../services/api";
 import type { AiMatterIntakePlan, MatterFromTemplatePayload } from "../types";
+import { aiProviderLabel } from "../utils/ai";
 
 const emptyForm: MatterFromTemplatePayload = {
   clientId: "",
@@ -219,7 +220,7 @@ function AiMatterIntakePlanPanel({ plan }: { plan: AiMatterIntakePlan }) {
           Subclass {plan.recommendedVisaSubclass}
         </span>
         <span className="text-xs font-semibold text-ink/45">
-          {plan.provider} · {plan.model} · {new Date(plan.generatedAt).toLocaleString()}
+          {aiProviderLabel(plan.provider)} · {plan.model} · {new Date(plan.generatedAt).toLocaleString()}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-ink/70">{plan.summary}</p>

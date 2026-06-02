@@ -1,10 +1,10 @@
 import { ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { routePermissions, type PermissionKey } from "../auth/permissions";
-import { useDemoUser } from "../state/demo-user";
+import { useCurrentUser } from "../state/current-user";
 
 export function AccessDeniedPage({ permission }: { permission: PermissionKey }) {
-  const { currentUser } = useDemoUser();
+  const { currentUser } = useCurrentUser();
   const allowedRoles = routePermissions[permission];
 
   return (
@@ -15,7 +15,7 @@ export function AccessDeniedPage({ permission }: { permission: PermissionKey }) 
         </div>
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-rose-700">Access denied</p>
-          <h1 className="mt-2 text-2xl font-semibold">This demo role cannot open this workspace.</h1>
+          <h1 className="mt-2 text-2xl font-semibold">This role cannot open this workspace.</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/65">
             Current role: {currentUser?.title ?? "Unknown"}. Allowed roles:{" "}
             {allowedRoles.map((role) => role.replaceAll("_", " ")).join(", ")}.
@@ -31,4 +31,3 @@ export function AccessDeniedPage({ permission }: { permission: PermissionKey }) 
     </div>
   );
 }
-

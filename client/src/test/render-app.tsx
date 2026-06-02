@@ -2,26 +2,26 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
-import { DemoUserProvider } from "../state/demo-user";
-import type { DemoUser } from "../types";
+import { CurrentUserProvider } from "../state/current-user";
+import type { AppUser } from "../types";
 
-export const demoUsers: DemoUser[] = [
+export const roleUsers: AppUser[] = [
   {
-    id: "rma-demo",
+    id: "user-rma",
     name: "Daniel Cho",
     title: "Registered Migration Agent",
     role: "RMA",
     description: "Reviews matters, verifies documents, and monitors lodgement readiness."
   },
   {
-    id: "finance-demo",
+    id: "user-finance",
     name: "Oliver Stone",
     title: "Finance Officer",
     role: "FINANCE",
     description: "Creates invoices, tracks payments, and reviews revenue."
   },
   {
-    id: "client-demo",
+    id: "user-client",
     name: "John Smith",
     title: "Client Portal User",
     role: "CLIENT",
@@ -40,14 +40,14 @@ export function renderApp(ui: React.ReactElement, route = "/") {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[route]}>
-        <DemoUserProvider>{ui}</DemoUserProvider>
+        <CurrentUserProvider>{ui}</CurrentUserProvider>
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-export function storeDemoUser(user: DemoUser) {
-  localStorage.setItem("asun-demo-user", JSON.stringify(user));
+export function storeCurrentUser(user: AppUser) {
+  localStorage.setItem("asun-current-user", JSON.stringify(user));
 }
 
 export function mockFetchJson(data: unknown) {

@@ -35,11 +35,11 @@ AI mode:
 - With `OPENAI_API_KEY` and `AI_PROVIDER="openai"`, AI intake plans, briefs, workflow suggestions, message drafts, document reviews, report insights, compliance reviews, and portal guidance use OpenAI.
 - Without a key, or with `AI_PROVIDER="local"`, AI features use deterministic local generation.
 
-## 1. Landing Page And Demo Roles
+## 1. Landing Page And Product Roles
 
 1. Open `http://localhost:5173`.
 2. Confirm the page title area shows `ASUN Migrations`.
-3. Open the `Demo persona` dropdown.
+3. Open the `Role` dropdown.
 4. Confirm these roles are available:
    - ASUN Platform Admin
    - Agency Admin
@@ -48,13 +48,13 @@ AI mode:
    - Finance Officer
    - Client Portal User
 5. Choose `Registered Migration Agent`.
-6. Click `Enter demo`.
+6. Click `Enter workspace`.
 
 Expected result:
 
 - You land on the staff dashboard.
 - The sidebar shows staff navigation.
-- The header shows the chosen demo role.
+- The header shows the chosen role.
 
 ## 2. Dashboard
 
@@ -174,7 +174,7 @@ Role: `Registered Migration Agent`
 Expected result:
 
 - AI summary appears without leaving the matter page.
-- Provider metadata shows either `openai` plus the configured model, or `local-demo-ai`.
+- Provider metadata shows either `openai` plus the configured model, or `Local AI`.
 - Risk level renders as `LOW`, `MEDIUM`, or `HIGH`.
 - Blockers, next actions, compliance notes, automation suggestions, and a client message draft appear.
 - Audit log records `ai.matter_brief_generated`.
@@ -281,7 +281,7 @@ Use a real envelope ID from the UI/API response if testing this callback directl
 
 Role: `Finance Officer`
 
-1. Click `Change demo role`.
+1. Click `Change role`.
 2. Choose `Finance Officer`.
 3. Go to `Billing`.
 4. Confirm invoices render.
@@ -300,7 +300,7 @@ Optional checkout API check:
 ```bash
 curl -s -X POST http://localhost:4000/api/checkout/session/create \
   -H 'Content-Type: application/json' \
-  -H 'x-demo-user-id: finance-demo' \
+  -H 'x-user-id: <finance-user-id>' \
   -d '{"invoiceId":"invoice-john-482"}'
 ```
 
@@ -392,7 +392,7 @@ Expected result:
   - `retention.requested`
   - `retention.approved`
   - `retention.completed`
-- If the request type is `Erasure request` and has a client selected, the client record is safely anonymized for demo compliance instead of physically deleted.
+- If the request type is `Erasure request` and has a client selected, the client record is safely anonymized instead of physically deleted.
 
 ## 17. Notification And Integration Logs
 
@@ -436,7 +436,7 @@ Expected result:
 
 Role: `Client Portal User`
 
-1. Click `Change demo role`.
+1. Click `Change role`.
 2. Choose `Client Portal User`.
 3. Confirm only portal navigation is available.
 4. Confirm matter progress, requested documents, invoice, and secure message panel render.
@@ -467,7 +467,7 @@ Role: `Registered Migration Agent`
 
 Expected result:
 
-- Draft metadata shows either `openai` plus the configured model, or `local-demo-ai`.
+- Draft metadata shows either `openai` plus the configured model, or `Local AI`.
 - AI client drafts save as `EXTERNAL`.
 - Manual internal notes save as `INTERNAL`.
 - Audit log records `ai.message_draft_generated`.
@@ -494,7 +494,7 @@ API negative check:
 
 ```bash
 curl -s http://localhost:4000/api/compliance \
-  -H 'x-demo-user-id: client-demo'
+  -H 'x-user-id: <client-user-id>'
 ```
 
 Expected result:

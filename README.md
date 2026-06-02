@@ -2,17 +2,17 @@
 
 [![CI](https://github.com/gorvensalaveria/crm-modern/actions/workflows/ci.yml/badge.svg)](https://github.com/gorvensalaveria/crm-modern/actions/workflows/ci.yml)
 
-A modern full-stack portfolio product based on the ASUN Migrations BRD. The application models a SaaS CRM for Australian migration agencies: client intake, visa matters, workflow templates, document compliance, billing, reporting, audit logs, and a client portal.
+A modern full-stack product based on the ASUN Migrations BRD. The application models a SaaS CRM for Australian migration agencies: client intake, visa matters, workflow templates, document compliance, billing, reporting, audit logs, and a client portal.
 
-This is intentionally built as a presentation-friendly product. Instead of a login screen, the landing page lets reviewers choose a demo role and immediately explore the system from that user perspective.
+Instead of a login screen, the landing page lets users choose a role and immediately access the correct workspace.
 
-## What This Demonstrates
+## Product Capabilities
 
 - Full-stack TypeScript delivery across React, Express, Prisma, and shared contracts
 - Product thinking from a real BRD, not a generic CRUD sample
 - Role-aware UX for RMA, case officer, finance, admin, and client portal users
 - Server-side RBAC, validation, consistent API errors, and audit-friendly workflows
-- PostgreSQL-backed CRM workflows with Prisma models and seeded demo data
+- PostgreSQL-backed CRM workflows with Prisma models and seeded product data
 - Automated tests, production build checks, and GitHub Actions CI
 
 ## Tech Stack
@@ -33,7 +33,7 @@ This is intentionally built as a presentation-friendly product. Instead of a log
 
 ## Core Features
 
-- Demo role selector for portfolio presentation
+- Role selector for workspace access
 - Staff dashboard with workload, pipeline, deadline, and revenue signals
 - Client directory with create/edit/detail workflows
 - Matter creation from visa workflow templates
@@ -53,9 +53,9 @@ This is intentionally built as a presentation-friendly product. Instead of a log
 - CSV and XLSX report exports with audit logging
 - Workflow template administration
 - Compliance centre for tenant settings, retention/erasure requests, document security, notifications, and integration event logs
-- Safe demo erasure flow that anonymizes client records instead of hard-deleting data
+- Safe erasure flow that anonymizes client records instead of hard-deleting data
 - Audit event filtering
-- Frontend and backend RBAC for demo roles
+- Frontend and backend RBAC for product roles
 - Route-level code splitting for smaller initial client bundles
 
 ## Optional OpenAI Setup
@@ -68,11 +68,11 @@ OPENAI_MODEL="gpt-5.4-mini"
 AI_PROVIDER="openai"
 ```
 
-Set `AI_PROVIDER="local"` when you want to force the no-cost deterministic demo mode.
+Set `AI_PROVIDER="local"` when you want to force deterministic local AI mode.
 
-## Demo Roles
+## Product Roles
 
-The app uses demo users instead of authentication so an interviewer can immediately inspect the product.
+The app uses selectable product roles so each workspace can be accessed from the appropriate user perspective.
 
 | Role | What to Review |
 | --- | --- |
@@ -118,7 +118,7 @@ npm run test         # Run Vitest/Supertest API tests
 npm run build        # Build shared, server, and client workspaces
 npm run db:generate  # Generate Prisma client
 npm run db:push      # Apply Prisma schema to local DB
-npm run db:seed      # Seed demo tenant, users, clients, matters, invoices, compliance logs
+npm run db:seed      # Seed tenant, users, clients, matters, invoices, compliance logs
 npm run db:studio    # Open Prisma Studio
 ```
 
@@ -151,9 +151,9 @@ Workflow file: [.github/workflows/ci.yml](./.github/workflows/ci.yml)
 
 ## Browser QA
 
-Use [docs/qa-script.md](./docs/qa-script.md) for a manual browser QA walkthrough. It covers the full local demo path, including:
+Use [docs/qa-script.md](./docs/qa-script.md) for a manual browser QA walkthrough. It covers the full local workflow, including:
 
-- demo role selection
+- role selection
 - RBAC checks
 - client and matter workflows
 - AI Matter Assistant case brief generation
@@ -168,12 +168,20 @@ Use [docs/qa-script.md](./docs/qa-script.md) for a manual browser QA walkthrough
 - notification and integration logs
 - audit log verification
 
+## Product Showcase
+
+Use [docs/product-showcase.md](./docs/product-showcase.md) when preparing screenshots, a walkthrough, or a product review deck. It includes the recommended screenshot order, pages to capture, and a short presentation script.
+
+## Free Deployment
+
+Use [docs/free-deployment-guide.md](./docs/free-deployment-guide.md) to deploy the product with a free-friendly stack: Vercel for the React frontend, Render for the Express API, and Supabase for Postgres.
+
 ## Architecture
 
 ```text
 client/
   React + Vite frontend
-  Demo role state, route guards, pages, API client, Tailwind UI
+  Role state, route guards, pages, API client, Tailwind UI
 
 server/
   Express API
@@ -192,8 +200,6 @@ docs/
 ## API Highlights
 
 - `GET /api/health`
-- `GET /api/demo-users`
-- `POST /api/demo-session`
 - `GET /api/dashboard`
 - `GET /api/clients`
 - `POST /api/clients`
@@ -245,7 +251,7 @@ The implementation plan lives in [docs/README.md](./docs/README.md), with suppor
 - Data model
 - API contract plan
 - Frontend UX plan
-- Demo role strategy
+- Role strategy
 - Development roadmap
 - Browser QA script
 

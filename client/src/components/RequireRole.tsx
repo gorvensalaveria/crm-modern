@@ -1,5 +1,5 @@
 import { AccessDeniedPage } from "../pages/AccessDeniedPage";
-import { useDemoUser } from "../state/demo-user";
+import { useCurrentUser } from "../state/current-user";
 import { canAccess, type PermissionKey } from "../auth/permissions";
 
 export function RequireRole({
@@ -9,7 +9,7 @@ export function RequireRole({
   permission: PermissionKey;
   children: React.ReactNode;
 }) {
-  const { currentUser } = useDemoUser();
+  const { currentUser } = useCurrentUser();
 
   if (!canAccess(currentUser?.role, permission)) {
     return <AccessDeniedPage permission={permission} />;
@@ -17,4 +17,3 @@ export function RequireRole({
 
   return <>{children}</>;
 }
-

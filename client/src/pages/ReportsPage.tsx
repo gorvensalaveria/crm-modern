@@ -4,6 +4,7 @@ import { CalendarClock, ClipboardList, Download, Sparkles } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { api } from "../services/api";
 import type { AiReportInsights } from "../types";
+import { aiProviderLabel } from "../utils/ai";
 
 export function ReportsPage() {
   const { data, isLoading } = useQuery({
@@ -183,7 +184,7 @@ function AiReportInsightsPanel({ insights }: { insights: AiReportInsights }) {
           {insights.overallHealth.replaceAll("_", " ")}
         </span>
         <span className="text-xs font-semibold text-ink/45">
-          {insights.provider} · {insights.model} · {new Date(insights.generatedAt).toLocaleString()}
+          {aiProviderLabel(insights.provider)} · {insights.model} · {new Date(insights.generatedAt).toLocaleString()}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-ink/70">{insights.executiveSummary}</p>

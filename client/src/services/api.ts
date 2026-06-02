@@ -15,7 +15,7 @@ import type {
   ClientRecord,
   ComplianceCenter,
   Dashboard,
-  DemoUser,
+  AppUser,
   DocumentUploadPayload,
   InvoicePayload,
   InvoiceRecord,
@@ -34,15 +34,21 @@ import type {
   WorkflowTemplatePayload
 } from "../types";
 
-const headers = (): HeadersInit => {
-  const rawUser = localStorage.getItem("asun-demo-user");
-  const demoUser = rawUser ? (JSON.parse(rawUser) as DemoUser) : null;
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
-  return demoUser ? { "x-demo-user-id": demoUser.id } : {};
+function apiUrl(path: string) {
+  return `${apiBaseUrl}${path}`;
+}
+
+const headers = (): HeadersInit => {
+  const rawUser = localStorage.getItem("asun-current-user");
+  const currentUser = rawUser ? (JSON.parse(rawUser) as AppUser) : null;
+
+  return currentUser ? { "x-user-id": currentUser.id } : {};
 };
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: headers() });
+  const response = await fetch(apiUrl(url), { headers: headers() });
   const body = (await response.json()) as { data?: T; error?: { message: string } };
 
   if (!response.ok) {
@@ -53,7 +59,7 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 async function sendJson<T>(url: string, method: "POST" | "PATCH", payload: unknown): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetch(apiUrl(url), {
     method,
     headers: {
       ...headers(),
@@ -71,7 +77,7 @@ async function sendJson<T>(url: string, method: "POST" | "PATCH", payload: unkno
 }
 
 async function download(url: string, filename: string) {
-  const response = await fetch(url, { headers: headers() });
+  const response = await fetch(apiUrl(url), { headers: headers() });
 
   if (!response.ok) {
     throw new Error("Download failed");
@@ -89,7 +95,7 @@ async function download(url: string, filename: string) {
 }
 
 export const api = {
-  demoUsers: () => getJson<DemoUser[]>("/api/demo-users"),
+  roleUsers: () => getJson<AppUser[]>("/api/role-users"),
   dashboard: () => getJson<Dashboard>("/api/dashboard"),
   clients: () => getJson<ClientRecord[]>("/api/clients"),
   client: (clientId: string) => getJson<ClientDetail>(`/api/clients/${clientId}`),

@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { RequireRole } from "./components/RequireRole";
-import { useDemoUser } from "./state/demo-user";
+import { useCurrentUser } from "./state/current-user";
 
 const AuditPage = lazy(() => import("./pages/AuditPage").then((module) => ({ default: module.AuditPage })));
 const BillingPage = lazy(() => import("./pages/BillingPage").then((module) => ({ default: module.BillingPage })));
@@ -44,7 +44,7 @@ function RouteLoading() {
 }
 
 export function App() {
-  const { currentUser } = useDemoUser();
+  const { currentUser } = useCurrentUser();
 
   return (
     <Suspense fallback={<RouteLoading />}>

@@ -15,6 +15,7 @@ import { Link, useParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
+import { aiProviderLabel } from "../utils/ai";
 import type {
   AiDocumentReview,
   AiMessageDraft,
@@ -956,7 +957,7 @@ export function MatterDetailPage() {
             </div>
             {draftMeta ? (
               <p className="mt-3 rounded-md bg-white/70 px-3 py-2 text-xs font-semibold text-ink/55">
-                Drafted as client message by {draftMeta.provider} · {draftMeta.model} · {draftMeta.subject}
+                Drafted as client message by {aiProviderLabel(draftMeta.provider)} · {draftMeta.model} · {draftMeta.subject}
               </p>
             ) : null}
             <textarea
@@ -1023,7 +1024,7 @@ function AiMatterBriefPanel({ brief }: { brief: AiMatterBrief }) {
             {brief.riskLevel} risk
           </span>
           <span className="text-xs font-semibold text-ink/45">
-            {brief.provider} · {brief.model} · {new Date(brief.generatedAt).toLocaleString()}
+            {aiProviderLabel(brief.provider)} · {brief.model} · {new Date(brief.generatedAt).toLocaleString()}
           </span>
         </div>
         <p className="mt-3 text-sm leading-6 text-ink/70">{brief.summary}</p>
@@ -1054,7 +1055,7 @@ function AiWorkflowSuggestionPanel({ suggestion }: { suggestion: AiWorkflowSugge
           Recommend {suggestion.recommendedStage.replaceAll("_", " ")}
         </span>
         <span className="text-xs font-semibold text-ink/45">
-          {suggestion.provider} · {suggestion.model} · {new Date(suggestion.generatedAt).toLocaleString()}
+          {aiProviderLabel(suggestion.provider)} · {suggestion.model} · {new Date(suggestion.generatedAt).toLocaleString()}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-ink/70">{suggestion.stageRationale}</p>
@@ -1119,7 +1120,7 @@ function AiDocumentReviewPanel({ review }: { review: AiDocumentReview }) {
           {review.confidence} confidence
         </span>
         <span className="text-xs font-semibold text-ink/45">
-          {review.provider} · {review.model} · {new Date(review.generatedAt).toLocaleString()}
+          {aiProviderLabel(review.provider)} · {review.model} · {new Date(review.generatedAt).toLocaleString()}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-ink/70">{review.summary}</p>
