@@ -3376,90 +3376,183 @@ async function maybeGenerateOpenAiPortalGuidance(context: unknown): Promise<AiPo
 }
 
 export async function getComplianceCenter() {
-  const [tenant, notifications, retentionRequests, integrationEvents, documents] = await Promise.all([
-    prisma.tenant.findUnique({ where: { id: defaultTenantId } }),
-    prisma.notification.findMany({
+  return withFallback(complianceCenterFallback(), async () => {
+    const tenant = await prisma.tenant.findUnique({ where: { id: defaultTenantId } });
+    const notifications = await prisma.notification.findMany({
       where: { tenantId: defaultTenantId },
       orderBy: { createdAt: "desc" },
       take: 10
-    }),
-    prisma.retentionRequest.findMany({
+    });
+    const retentionRequests = await prisma.retentionRequest.findMany({
       where: { tenantId: defaultTenantId },
       include: { client: true, requestedBy: true, approvedBy: true },
       orderBy: { requestedAt: "desc" },
       take: 20
-    }),
-    prisma.integrationEvent.findMany({
+    });
+    const integrationEvents = await prisma.integrationEvent.findMany({
       where: { tenantId: defaultTenantId },
       orderBy: { receivedAt: "desc" },
       take: 20
-    }),
-    prisma.document.findMany({
+    });
+    const documents = await prisma.document.findMany({
       where: { tenantId: defaultTenantId },
       orderBy: { updatedAt: "desc" },
       take: 20
-    })
-  ]);
+    });
 
-  if (!tenant) {
-    throw new Error("Tenant not found");
-  }
+    if (!tenant) {
+      throw new Error("Tenant not found");
+    }
+
+    return {
+      settings: {
+        tenantName: tenant.name,
+        brandColor: tenant.brandColor,
+        retentionYears: tenant.retentionYears,
+        taxRate: Number(tenant.taxRate),
+        dataRegion: tenant.dataRegion,
+        privacyContactEmail: tenant.privacyContactEmail,
+        deletionApproverRole: tenant.deletionApproverRole,
+        stripeMode: tenant.stripeMode,
+        docusignMode: tenant.docusignMode,
+        emailProvider: tenant.emailProvider
+      },
+      documentSecurity: {
+        total: documents.length,
+        clean: documents.filter((document) => document.scanStatus === "CLEAN").length,
+        pending: documents.filter((document) => document.scanStatus === "PENDING").length,
+        blocked: documents.filter((document) => ["INFECTED", "FAILED"].includes(document.scanStatus)).length,
+        recent: documents.map((document) => ({
+          id: document.id,
+          title: document.title,
+          status: document.status,
+          scanStatus: document.scanStatus,
+          storageProvider: document.storageProvider,
+          scannedAt: document.scannedAt?.toISOString() ?? null
+        }))
+      },
+      notifications: notifications.map((notification) => ({
+        id: notification.id,
+        recipient: notification.recipient,
+        subject: notification.subject,
+        status: notification.status,
+        provider: notification.provider,
+        sentAt: notification.sentAt?.toISOString() ?? null,
+        createdAt: notification.createdAt.toISOString()
+      })),
+      retentionRequests: retentionRequests.map((request) => ({
+        id: request.id,
+        clientName: request.client?.name ?? "Tenant-wide",
+        action: request.action,
+        reason: request.reason,
+        status: request.status,
+        requestedBy: request.requestedBy?.name ?? "System",
+        approvedBy: request.approvedBy?.name ?? null,
+        requestedAt: request.requestedAt.toISOString(),
+        completedAt: request.completedAt?.toISOString() ?? null
+      })),
+      integrationEvents: integrationEvents.map((event) => ({
+        id: event.id,
+        provider: event.provider,
+        eventType: event.eventType,
+        status: event.status,
+        externalId: event.externalId,
+        receivedAt: event.receivedAt.toISOString()
+      }))
+    };
+  });
+}
+
+function complianceCenterFallback() {
+  const now = new Date().toISOString();
 
   return {
     settings: {
-      tenantName: tenant.name,
-      brandColor: tenant.brandColor,
-      retentionYears: tenant.retentionYears,
-      taxRate: Number(tenant.taxRate),
-      dataRegion: tenant.dataRegion,
-      privacyContactEmail: tenant.privacyContactEmail,
-      deletionApproverRole: tenant.deletionApproverRole,
-      stripeMode: tenant.stripeMode,
-      docusignMode: tenant.docusignMode,
-      emailProvider: tenant.emailProvider
+      tenantName: "ASUN Migrations",
+      brandColor: "#47624f",
+      retentionYears: 7,
+      taxRate: 10,
+      dataRegion: "AU",
+      privacyContactEmail: "privacy@asunmigrations.example",
+      deletionApproverRole: "AGENCY_ADMIN",
+      stripeMode: "mock",
+      docusignMode: "mock",
+      emailProvider: "mock"
     },
     documentSecurity: {
-      total: documents.length,
-      clean: documents.filter((document) => document.scanStatus === "CLEAN").length,
-      pending: documents.filter((document) => document.scanStatus === "PENDING").length,
-      blocked: documents.filter((document) => ["INFECTED", "FAILED"].includes(document.scanStatus)).length,
-      recent: documents.map((document) => ({
-        id: document.id,
-        title: document.title,
-        status: document.status,
-        scanStatus: document.scanStatus,
-        storageProvider: document.storageProvider,
-        scannedAt: document.scannedAt?.toISOString() ?? null
-      }))
+      total: 3,
+      clean: 2,
+      pending: 1,
+      blocked: 0,
+      recent: [
+        {
+          id: "fallback-document-passport",
+          title: "Passport bio page",
+          status: "VERIFIED",
+          scanStatus: "CLEAN",
+          storageProvider: "local",
+          scannedAt: now
+        },
+        {
+          id: "fallback-document-form-956",
+          title: "Form 956 appointment",
+          status: "RECEIVED",
+          scanStatus: "CLEAN",
+          storageProvider: "local",
+          scannedAt: now
+        },
+        {
+          id: "fallback-document-health",
+          title: "Health examination receipt",
+          status: "REQUESTED",
+          scanStatus: "PENDING",
+          storageProvider: "local",
+          scannedAt: null
+        }
+      ]
     },
-    notifications: notifications.map((notification) => ({
-      id: notification.id,
-      recipient: notification.recipient,
-      subject: notification.subject,
-      status: notification.status,
-      provider: notification.provider,
-      sentAt: notification.sentAt?.toISOString() ?? null,
-      createdAt: notification.createdAt.toISOString()
-    })),
-    retentionRequests: retentionRequests.map((request) => ({
-      id: request.id,
-      clientName: request.client?.name ?? "Tenant-wide",
-      action: request.action,
-      reason: request.reason,
-      status: request.status,
-      requestedBy: request.requestedBy?.name ?? "System",
-      approvedBy: request.approvedBy?.name ?? null,
-      requestedAt: request.requestedAt.toISOString(),
-      completedAt: request.completedAt?.toISOString() ?? null
-    })),
-    integrationEvents: integrationEvents.map((event) => ({
-      id: event.id,
-      provider: event.provider,
-      eventType: event.eventType,
-      status: event.status,
-      externalId: event.externalId,
-      receivedAt: event.receivedAt.toISOString()
-    }))
+    notifications: [
+      {
+        id: "fallback-notification-document",
+        recipient: "client@example.com",
+        subject: "Document verified",
+        status: "SENT",
+        provider: "mock",
+        sentAt: now,
+        createdAt: now
+      }
+    ],
+    retentionRequests: [
+      {
+        id: "fallback-retention-review",
+        clientName: "Miguel Santos",
+        action: "ARCHIVE_REVIEW",
+        reason: "Review retention status for inactive intake matter.",
+        status: "REQUESTED",
+        requestedBy: "Mina Patel",
+        approvedBy: null,
+        requestedAt: now,
+        completedAt: null
+      }
+    ],
+    integrationEvents: [
+      {
+        id: "fallback-integration-email",
+        provider: "EMAIL",
+        eventType: "notification.sent",
+        status: "sent",
+        externalId: null,
+        receivedAt: now
+      },
+      {
+        id: "fallback-integration-stripe",
+        provider: "STRIPE",
+        eventType: "payment_intent.succeeded",
+        status: "succeeded",
+        externalId: "pi_fallback",
+        receivedAt: now
+      }
+    ]
   };
 }
 
