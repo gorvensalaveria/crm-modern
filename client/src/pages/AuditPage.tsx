@@ -20,6 +20,8 @@ export function AuditPage() {
     queryKey: ["audit-events", filters],
     queryFn: () => api.auditEvents(filters)
   });
+  const meta = data?.meta ?? { total: 0, actions: [], actors: [] };
+  const events = data?.events ?? [];
 
   function updateFilter<K extends keyof AuditFilters>(field: K, value: AuditFilters[K]) {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -48,7 +50,7 @@ export function AuditPage() {
               className="form-input mt-2"
             >
               <option value="">All actions</option>
-              {(data?.meta.actions ?? []).map((action) => (
+              {meta.actions.map((action) => (
                 <option key={action} value={action}>
                   {action}
                 </option>
@@ -66,7 +68,7 @@ export function AuditPage() {
               list="audit-actors"
             />
             <datalist id="audit-actors">
-              {(data?.meta.actors ?? []).map((actor) => (
+              {meta.actors.map((actor) => (
                 <option key={actor} value={actor} />
               ))}
             </datalist>
@@ -119,15 +121,15 @@ export function AuditPage() {
             <ShieldCheck size={18} />
             <h2 className="text-lg font-semibold">Events</h2>
           </div>
-          <p className="text-sm text-ink/55">{data?.meta.total ?? 0} matching events</p>
+          <p className="text-sm text-ink/55">{meta.total} matching events</p>
         </div>
 
         {isLoading ? (
           <p className="mt-4 text-sm text-ink/60">Loading audit events...</p>
         ) : (
           <div className="mt-4 space-y-3">
-            {(data?.events ?? []).length ? (
-              data?.events.map((event) => (
+            {events.length ? (
+              events.map((event) => (
                 <div
                   key={event.id}
                   className="grid gap-3 rounded-md border border-black/10 p-4 md:grid-cols-[1fr_auto]"
@@ -153,4 +155,3 @@ export function AuditPage() {
     </div>
   );
 }
-

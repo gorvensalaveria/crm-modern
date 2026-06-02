@@ -3141,7 +3141,7 @@ export async function getDashboard() {
 }
 
 export async function getAuditEvents(filters: AuditFilters = {}) {
-  return withFallback(fallbackAuditEvents as unknown, async () => {
+  return withFallback(auditEventsFallback(), async () => {
     const where = {
       tenantId: defaultTenantId,
       ...(filters.action ? { action: filters.action } : {}),
@@ -3200,6 +3200,22 @@ export async function getAuditEvents(filters: AuditFilters = {}) {
       }
     };
   });
+}
+
+function auditEventsFallback() {
+  const events = fallbackAuditEvents.map((event) => ({
+    ...event,
+    entityType: "AuditEvent"
+  }));
+
+  return {
+    events,
+    meta: {
+      total: events.length,
+      actions: [...new Set(events.map((event) => event.action))],
+      actors: [...new Set(events.map((event) => event.actor))]
+    }
+  };
 }
 
 export async function getPortalSummary() {
