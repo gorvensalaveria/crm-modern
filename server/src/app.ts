@@ -1,10 +1,11 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
-import { z } from "zod";
-import { roleUsers } from "./data/role-data.js";
+import { ApiError, notFound, requestFailed } from "./errors/api-error.js";
+import { getRequestRole, requestUserId, requireRoles, roles } from "./middleware/auth.js";
+import { apiNotFoundHandler, errorHandler } from "./middleware/error-handler.js";
+import { systemRoutes } from "./routes/system-routes.js";
 import {
   createClient,
   createCheckoutSession,
@@ -50,132 +51,38 @@ import {
   updateTaskStatus,
   uploadMatterDocument
 } from "./services/crm-repository.js";
+import { parseRequest, routeParam } from "./utils/request.js";
+import {
+  aiMessageDraftSchema,
+  checkoutSessionSchema,
+  createClientPayloadSchema,
+  createInvoiceSchema,
+  createMatterChecklistSchema,
+  createMatterFromTemplateSchema,
+  createMatterTaskSchema,
+  createMessageSchema,
+  createWorkflowTemplateSchema,
+  reportExportSchema,
+  retentionDecisionSchema,
+  retentionRequestSchema,
+  reviewDocumentSchema,
+  signatureEnvelopeSchema,
+  signatureWebhookSchema,
+  stripeWebhookSchema,
+  tenantSettingsSchema,
+  updateChecklistStatusSchema,
+  updateClientPayloadSchema,
+  updateMatterStageSchema,
+  updateTaskStatusSchema,
+  uploadDocumentSchema
+} from "./validators/request-schemas.js";
 
 export const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json({ limit: "30mb" }));
-
-type AppRole = "ASUN_ADMIN" | "AGENCY_ADMIN" | "RMA" | "CASE_OFFICER" | "FINANCE" | "CLIENT";
-type ApiErrorCode =
-  | "API_500"
-  | "API_404"
-  | "CHECKLIST_404"
-  | "CLIENT_404"
-  | "CLIENT_409"
-  | "USER_404"
-  | "DOC_400"
-  | "DOC_404"
-  | "INVOICE_400"
-  | "MATTER_400"
-  | "MATTER_404"
-  | "MESSAGE_404"
-  | "PAY_404"
-  | "RBAC_403"
-  | "RETENTION_404"
-  | "TASK_404"
-  | "VALIDATION_400"
-  | "WORKFLOW_409";
-
-class ApiError extends Error {
-  constructor(
-    public readonly statusCode: number,
-    public readonly code: ApiErrorCode,
-    message: string
-  ) {
-    super(message);
-  }
-}
-
-const roles = {
-  staff: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER", "FINANCE"],
-  clientOps: ["CLIENT"],
-  clientAndFinance: ["ASUN_ADMIN", "AGENCY_ADMIN", "FINANCE", "CLIENT"],
-  clientMatterUpload: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER", "CLIENT"],
-  clientMessaging: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER", "CLIENT"],
-  clientRecords: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER"],
-  matterOps: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "CASE_OFFICER"],
-  finance: ["ASUN_ADMIN", "AGENCY_ADMIN", "FINANCE"],
-  matterBilling: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "FINANCE"],
-  reports: ["ASUN_ADMIN", "AGENCY_ADMIN", "RMA", "FINANCE"],
-  admin: ["ASUN_ADMIN", "AGENCY_ADMIN"]
-} satisfies Record<string, AppRole[]>;
-
-function getRequestRole(req: Request): AppRole {
-  const userId = requestUserId(req) ?? roleUsers.find((item) => item.role === "RMA")?.id;
-  const user = roleUsers.find((item) => item.id === userId);
-  return (user?.role ?? "RMA") as AppRole;
-}
-
-function requestUserId(req: Request) {
-  return req.header("x-user-id") ?? undefined;
-}
-
-function requireRoles(allowedRoles: AppRole[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const role = getRequestRole(req);
-
-    if (!allowedRoles.includes(role)) {
-      next(new ApiError(403, "RBAC_403", `Role ${role.replaceAll("_", " ")} cannot access this API endpoint`));
-      return;
-    }
-
-    next();
-  };
-}
-
-function routeParam(req: Request, name: string) {
-  const value = req.params[name];
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
-}
-
-function parseRequest<TSchema extends z.ZodTypeAny>(
-  schema: TSchema,
-  input: unknown,
-  fallbackMessage: string
-): z.infer<TSchema> {
-  const parsed = schema.safeParse(input);
-
-  if (!parsed.success) {
-    throw new ApiError(400, "VALIDATION_400", parsed.error.issues[0]?.message ?? fallbackMessage);
-  }
-
-  return parsed.data;
-}
-
-function notFound(message: string, code: ApiErrorCode = "API_404"): never {
-  throw new ApiError(404, code, message);
-}
-
-function requestFailed(
-  error: unknown,
-  statusCode: number,
-  code: ApiErrorCode,
-  fallbackMessage: string
-): never {
-  throw new ApiError(statusCode, code, error instanceof Error ? error.message : fallbackMessage);
-}
-
-app.get("/api/health", (_req, res) => {
-  res.json({ data: { status: "ok", service: "asun-migrations-api" } });
-});
-
-app.get("/api/role-users", (_req, res) => {
-  res.json({ data: roleUsers });
-});
-
-function createRoleSession(req: Request, res: Response) {
-  const selectedUser = roleUsers.find((user) => user.id === req.body?.userId);
-
-  if (!selectedUser) {
-    notFound("User not found", "USER_404");
-  }
-
-  res.json({ data: selectedUser });
-}
-
-app.post("/api/role-session", createRoleSession);
+app.use("/api", systemRoutes);
 
 app.get("/api/dashboard", requireRoles(roles.staff), async (_req, res) => {
   res.json({ data: await getDashboard() });
@@ -605,197 +512,5 @@ app.patch("/api/compliance/retention-requests/:retentionRequestId", requireRoles
   }
 });
 
-app.use("/api", (req, _res, next) => {
-  next(new ApiError(404, "API_404", `API route not found: ${req.method} ${req.path}`));
-});
-
-app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (error instanceof ApiError) {
-    res.status(error.statusCode).json({
-      error: {
-        code: error.code,
-        message: error.message
-      }
-    });
-    return;
-  }
-
-  if (error instanceof SyntaxError) {
-    res.status(400).json({
-      error: {
-        code: "VALIDATION_400",
-        message: "Malformed JSON request body"
-      }
-    });
-    return;
-  }
-
-  console.error(error);
-  res.status(500).json({
-    error: {
-      code: "API_500",
-      message: "Unexpected API error"
-    }
-  });
-});
-
-const baseClientPayloadSchema = z.object({
-  name: z.string().trim().min(2, "Client name is required"),
-  email: z.string().trim().email("A valid email is required"),
-  dateOfBirth: z.string().refine((value) => {
-    const date = new Date(value);
-    return !Number.isNaN(date.valueOf()) && date <= new Date();
-  }, "Date of birth must be today or earlier"),
-  nationality: z.string().trim().min(2, "Nationality is required"),
-  consentStatus: z.enum(["SIGNED", "PENDING", "EXPIRED"]),
-  conflictCheckStatus: z.enum(["CLEAR", "ESCALATE", "DECLINED"]),
-  portalActive: z.boolean()
-});
-
-const createClientPayloadSchema = baseClientPayloadSchema.extend({
-  passportNumber: z
-    .string()
-    .trim()
-    .regex(/^[A-Z][0-9]{7}$/i, "Passport must be 1 letter followed by 7 digits")
-});
-
-const updateClientPayloadSchema = baseClientPayloadSchema.extend({
-  passportNumber: z
-    .string()
-    .trim()
-    .regex(/^[A-Z][0-9]{7}$/i, "Passport must be 1 letter followed by 7 digits")
-    .optional()
-    .or(z.literal(""))
-});
-
-const createMatterFromTemplateSchema = z.object({
-  clientId: z.string().min(1, "Client is required"),
-  templateId: z.string().min(1, "Workflow template is required"),
-  keyDate: z.string().refine((value) => {
-    const date = new Date(value);
-    return !Number.isNaN(date.valueOf()) && date >= new Date(new Date().toDateString());
-  }, "Key date must be today or later")
-});
-
-const updateMatterStageSchema = z.object({
-  stage: z.enum(["INTAKE", "DOCUMENTS", "LODGEMENT", "CASE_OFFICER_REQUEST", "DECISION", "ARCHIVED"])
-});
-
-const updateTaskStatusSchema = z.object({
-  status: z.enum(["OPEN", "BLOCKED", "DONE", "SNOOZED"])
-});
-
-const updateChecklistStatusSchema = z.object({
-  status: z.enum(["REQUESTED", "RECEIVED", "VERIFIED", "REJECTED"])
-});
-
-const aiMessageDraftSchema = z.object({
-  intent: z.enum(["DOCUMENT_REQUEST", "INVOICE_FOLLOW_UP", "STATUS_UPDATE"])
-});
-
-const createMatterTaskSchema = z.object({
-  title: z.string().trim().min(2, "Task title is required"),
-  description: z.string().trim().max(500).optional(),
-  dueOn: z.string().refine((value) => {
-    const date = new Date(value);
-    return !Number.isNaN(date.valueOf()) && date >= new Date(new Date().toDateString());
-  }, "Task due date must be today or later")
-});
-
-const createMatterChecklistSchema = z.object({
-  title: z.string().trim().min(2, "Checklist title is required"),
-  category: z.string().trim().min(2, "Checklist category is required"),
-  dueOn: z
-    .string()
-    .optional()
-    .refine((value) => {
-      if (!value) return true;
-      const date = new Date(value);
-      return !Number.isNaN(date.valueOf()) && date >= new Date(new Date().toDateString());
-    }, "Checklist due date must be today or later"),
-  required: z.boolean()
-});
-
-const uploadDocumentSchema = z.object({
-  checklistItemId: z.string().optional(),
-  title: z.string().trim().min(2, "Document title is required"),
-  fileName: z
-    .string()
-    .trim()
-    .min(3, "File name is required")
-    .regex(/\.(pdf|docx|jpg|jpeg)$/i, "File name must end in PDF, DOCX, JPG, or JPEG"),
-  fileType: z.enum(["PDF", "DOCX", "JPG"]),
-  fileSize: z.number().int().positive("File size must be greater than 0").max(25 * 1024 * 1024),
-  fileContentBase64: z.string().optional()
-});
-
-const reviewDocumentSchema = z.object({
-  status: z.enum(["VERIFIED", "REJECTED"])
-});
-
-const createInvoiceSchema = z.object({
-  description: z.string().trim().min(2, "Line item description is required"),
-  subtotal: z.number().positive("Subtotal must be greater than 0"),
-  tax: z.number().min(0, "Tax cannot be negative"),
-  dueOn: z.string().refine((value) => {
-    const date = new Date(value);
-    return !Number.isNaN(date.valueOf()) && date >= new Date(new Date().toDateString());
-  }, "Due date must be today or later"),
-  status: z.enum(["DRAFT", "SENT"])
-});
-
-const createMessageSchema = z.object({
-  body: z.string().trim().min(2, "Message is required").max(2000, "Message is too long"),
-  visibility: z.enum(["INTERNAL", "EXTERNAL"])
-});
-
-const createWorkflowTemplateSchema = z.object({
-  visaSubclass: z.string().trim().min(2, "Visa subclass is required").max(20),
-  name: z.string().trim().min(3, "Template name is required"),
-  description: z.string().trim().max(500).optional()
-});
-
-const reportExportSchema = z.object({
-  type: z.enum(["pipeline", "revenue", "sla", "deadlines", "workload"])
-});
-
-const checkoutSessionSchema = z.object({
-  invoiceId: z.string().min(1, "Invoice is required")
-});
-
-const stripeWebhookSchema = z.object({
-  invoiceId: z.string().min(1, "Invoice is required"),
-  eventType: z.string().trim().min(2, "Event type is required"),
-  status: z.enum(["succeeded", "failed"]),
-  providerPaymentId: z.string().optional()
-});
-
-const signatureEnvelopeSchema = z.object({
-  documentId: z.string().min(1, "Document is required"),
-  signerEmail: z.string().email("A valid signer email is required")
-});
-
-const signatureWebhookSchema = z.object({
-  envelopeId: z.string().min(1, "Envelope is required"),
-  status: z.enum(["completed", "declined", "expired"])
-});
-
-const tenantSettingsSchema = z.object({
-  brandColor: z.string().regex(/^#[0-9a-f]{6}$/i, "Brand color must be a hex color"),
-  retentionYears: z.number().int().min(1).max(30),
-  taxRate: z.number().min(0).max(100),
-  privacyContactEmail: z.string().email().optional().or(z.literal("")),
-  stripeMode: z.enum(["mock", "live"]),
-  docusignMode: z.enum(["mock", "live"]),
-  emailProvider: z.enum(["mock", "sendgrid", "ses"])
-});
-
-const retentionRequestSchema = z.object({
-  clientId: z.string().optional(),
-  action: z.enum(["EXPORT", "ERASURE", "ARCHIVE_REVIEW"]),
-  reason: z.string().trim().min(5, "Reason is required")
-});
-
-const retentionDecisionSchema = z.object({
-  status: z.enum(["APPROVED", "REJECTED", "COMPLETED"])
-});
+app.use("/api", apiNotFoundHandler);
+app.use(errorHandler);
