@@ -1,1 +1,1 @@
-export { demoUsers as roleUsers } from "./demo-data.js";
+export { productUsers as roleUsers } from "./product-data.js";

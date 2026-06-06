@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const tenantId = "tenant-asun-demo";
+const tenantId = "tenant-asun-primary";
 const users = {
   asunAdmin: "user-asun-admin",
   agencyAdmin: "user-agency-admin",
@@ -29,8 +29,8 @@ async function main() {
     update: {},
     create: {
       id: tenantId,
-      name: "ASUN Migrations Demo Agency",
-      slug: "asun-demo",
+      name: "ASUN Migrations Agency",
+      slug: "asun-primary",
       brandColor: "#47624f",
       retentionYears: 7
     }
@@ -373,7 +373,7 @@ async function seedInvoices() {
       tenantId,
       invoiceId: paidInvoice.id,
       provider: "stripe",
-      providerPaymentId: "pi_demo_186",
+      providerPaymentId: "pi_asun_186",
       amount: 4200,
       status: "SUCCEEDED",
       paidAt: "2026-05-18T00:00:00.000Z"
@@ -483,9 +483,9 @@ function document(
     fileName,
     fileType,
     fileSize: 512000,
-    storageKey: `demo/${fileName}`,
+    storageKey: `uploads/${fileName}`,
     storageProvider: "local",
-    checksum: `sha256-demo-${fileName.replaceAll(/[^a-z0-9]/gi, "").toLowerCase()}`,
+    checksum: `sha256-asun-${fileName.replaceAll(/[^a-z0-9]/gi, "").toLowerCase()}`,
     scanStatus: "CLEAN",
     scanProvider: "mock-av",
     scanMessage: "No threats detected.",

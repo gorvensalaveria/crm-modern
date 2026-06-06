@@ -63,7 +63,7 @@ export type MatterDetail = Matter & {
 
 export type AiMatterBrief = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   riskLevel: "LOW" | "MEDIUM" | "HIGH";
   summary: string;
@@ -78,7 +78,7 @@ export type AiMessageDraftIntent = "DOCUMENT_REQUEST" | "INVOICE_FOLLOW_UP" | "S
 
 export type AiMessageDraft = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   intent: AiMessageDraftIntent;
   subject: string;
@@ -87,7 +87,7 @@ export type AiMessageDraft = {
 
 export type AiDocumentReview = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   recommendation: "VERIFY" | "REJECT" | "NEEDS_REVIEW";
   confidence: "LOW" | "MEDIUM" | "HIGH";
@@ -102,7 +102,7 @@ export type MatterStage = "INTAKE" | "DOCUMENTS" | "LODGEMENT" | "CASE_OFFICER_R
 
 export type AiWorkflowSuggestion = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   recommendedStage: MatterStage;
   stageRationale: string;
@@ -124,7 +124,7 @@ export type AiWorkflowSuggestion = {
 
 export type AiMatterIntakePlan = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   intakeRisk: "LOW" | "MEDIUM" | "HIGH";
   recommendedVisaSubclass: string;
@@ -353,7 +353,7 @@ export type Report = {
 
 export type AiReportInsights = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   overallHealth: "LOW_RISK" | "WATCH" | "AT_RISK";
   executiveSummary: string;
@@ -366,7 +366,7 @@ export type AiReportInsights = {
 
 export type AiComplianceReview = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   compliancePosture: "GOOD" | "WATCH" | "ACTION_REQUIRED";
   summary: string;
@@ -380,7 +380,7 @@ export type AiComplianceReview = {
 
 export type AiPortalGuidance = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   tone: "REASSURING" | "ACTION_NEEDED" | "URGENT";
   statusSummary: string;

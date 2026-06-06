@@ -2,14 +2,14 @@
 
 [![CI](https://github.com/gorvensalaveria/crm-modern/actions/workflows/ci.yml/badge.svg)](https://github.com/gorvensalaveria/crm-modern/actions/workflows/ci.yml)
 
-A modern full-stack product based on the ASUN Migrations BRD. The application models a SaaS CRM for Australian migration agencies: client intake, visa matters, workflow templates, document compliance, billing, reporting, audit logs, and a client portal.
+A modern full-stack SaaS CRM for Australian migration agencies: client intake, visa matters, workflow templates, document compliance, billing, reporting, audit logs, and a client portal.
 
-Instead of a login screen, the landing page lets users choose a role and immediately access the correct workspace.
+The landing page lets users choose a product role and immediately access the correct workspace.
 
 ## Product Capabilities
 
 - Full-stack TypeScript delivery across React, Express, Prisma, and shared contracts
-- Product thinking from a real BRD, not a generic CRUD sample
+- Domain-specific product workflows for migration-agency operations
 - Role-aware UX for RMA, case officer, finance, admin, and client portal users
 - Server-side RBAC, validation, consistent API errors, and audit-friendly workflows
 - PostgreSQL-backed CRM workflows with Prisma models and seeded product data
@@ -170,7 +170,7 @@ Use [docs/qa-script.md](./docs/qa-script.md) for a manual browser QA walkthrough
 
 ## Product Showcase
 
-Use [docs/product-showcase.md](./docs/product-showcase.md) when preparing screenshots, a walkthrough, or a product review deck. It includes the recommended screenshot order, pages to capture, and a short presentation script.
+Use [docs/product-showcase.md](./docs/product-showcase.md) when preparing screenshots, a walkthrough, or a product review deck. It includes the screenshot order, pages to capture, and a short presentation script.
 
 ## Free Deployment
 
@@ -194,7 +194,7 @@ prisma/
   PostgreSQL schema and seed data
 
 docs/
-  BRD implementation plan, architecture, API plan, UX plan, roadmap
+  Product overview, architecture, API contract, UX, role access, QA, deployment
 ```
 
 ## API Highlights

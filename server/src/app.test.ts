@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "./app.js";
 import { prisma } from "./lib/prisma.js";
 
-const tenantId = "tenant-asun-demo";
+const tenantId = "tenant-asun-primary";
 const integrationEmailPrefix = "integration";
 const createdEntityIds = new Set<string>();
 
@@ -13,8 +13,8 @@ async function ensureIntegrationSeed() {
     update: {},
     create: {
       id: tenantId,
-      name: "ASUN Migrations Demo Agency",
-      slug: "asun-demo",
+      name: "ASUN Migrations Agency",
+      slug: "asun-primary",
       brandColor: "#47624f",
       retentionYears: 7
     }
@@ -169,11 +169,11 @@ describe("ASUN Migrations API", () => {
   it("creates a role session for a known user", async () => {
     const response = await request(app)
       .post("/api/role-session")
-      .send({ userId: "rma-demo" })
+      .send({ userId: "rma-user" })
       .expect(200);
 
     expect(response.body.data).toMatchObject({
-      id: "rma-demo",
+      id: "rma-user",
       role: "RMA"
     });
   });
@@ -181,7 +181,7 @@ describe("ASUN Migrations API", () => {
   it("returns a typed 404 for an unknown user", async () => {
     const response = await request(app)
       .post("/api/role-session")
-      .send({ userId: "missing-demo" })
+      .send({ userId: "missing-user" })
       .expect(404);
 
     expect(response.body).toEqual({
@@ -195,7 +195,7 @@ describe("ASUN Migrations API", () => {
   it("blocks client users from staff-only billing APIs before repository access", async () => {
     const response = await request(app)
       .get("/api/invoices")
-      .set("x-user-id", "client-demo")
+      .set("x-user-id", "client-user")
       .expect(403);
 
     expect(response.body).toEqual({
@@ -209,7 +209,7 @@ describe("ASUN Migrations API", () => {
   it("validates client creation payloads consistently", async () => {
     const response = await request(app)
       .post("/api/clients")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({})
       .expect(400);
 
@@ -222,7 +222,7 @@ describe("ASUN Migrations API", () => {
   it("returns a consistent validation error for malformed JSON", async () => {
     const response = await request(app)
       .post("/api/clients")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .set("Content-Type", "application/json")
       .send("{")
       .expect(400);
@@ -250,7 +250,7 @@ describe("ASUN Migrations API", () => {
     const unique = Date.now();
     const clientResponse = await request(app)
       .post("/api/clients")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({
         name: "Integration Client",
         email: `${integrationEmailPrefix}-${unique}@asun.integration.test`,
@@ -273,14 +273,14 @@ describe("ASUN Migrations API", () => {
 
     const templatesResponse = await request(app)
       .get("/api/workflow-templates")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
     const template = templatesResponse.body.data.find((item: { visaSubclass: string }) => item.visaSubclass === "482");
     expect(template).toBeDefined();
 
     const intakePlanResponse = await request(app)
       .post("/api/matters/ai-intake-plan")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({
         clientId,
         templateId: template.id,
@@ -289,7 +289,7 @@ describe("ASUN Migrations API", () => {
       .expect(200);
 
     expect(intakePlanResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       recommendedVisaSubclass: "482",
       intakeRisk: expect.any(String),
@@ -300,7 +300,7 @@ describe("ASUN Migrations API", () => {
 
     const matterResponse = await request(app)
       .post("/api/matters/from-template")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({
         clientId,
         templateId: template.id,
@@ -319,7 +319,7 @@ describe("ASUN Migrations API", () => {
 
     const matterDetailResponse = await request(app)
       .get(`/api/matters/${matterId}`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
     const checklistItem = matterDetailResponse.body.data.checklistItems[0];
     expect(checklistItem).toMatchObject({
@@ -329,7 +329,7 @@ describe("ASUN Migrations API", () => {
 
     const taskCreateResponse = await request(app)
       .post(`/api/matters/${matterId}/tasks`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({
         title: "Call client about new evidence",
         description: "Confirm whether additional identity evidence is available.",
@@ -351,7 +351,7 @@ describe("ASUN Migrations API", () => {
 
     const checklistCreateResponse = await request(app)
       .post(`/api/matters/${matterId}/checklist-items`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({
         title: "Updated passport scan",
         category: "IDENTITY",
@@ -374,7 +374,7 @@ describe("ASUN Migrations API", () => {
 
     const uploadResponse = await request(app)
       .post(`/api/matters/${matterId}/documents`)
-      .set("x-user-id", "case-officer-demo")
+      .set("x-user-id", "case-officer-user")
       .send({
         checklistItemId: checklistItem.id,
         title: "Passport bio page",
@@ -398,7 +398,7 @@ describe("ASUN Migrations API", () => {
 
     const generalUploadResponse = await request(app)
       .post(`/api/matters/${matterId}/documents`)
-      .set("x-user-id", "case-officer-demo")
+      .set("x-user-id", "case-officer-user")
       .send({
         title: "General identity note",
         fileName: "general-note.pdf",
@@ -419,7 +419,7 @@ describe("ASUN Migrations API", () => {
 
     const reviewResponse = await request(app)
       .patch(`/api/documents/${document.id}/review`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({ status: "VERIFIED" })
       .expect(200);
 
@@ -430,11 +430,11 @@ describe("ASUN Migrations API", () => {
 
     const documentAiReviewResponse = await request(app)
       .post(`/api/documents/${document.id}/ai-review`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
 
     expect(documentAiReviewResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       recommendation: expect.any(String),
       summary: expect.stringContaining("Passport bio page")
@@ -442,7 +442,7 @@ describe("ASUN Migrations API", () => {
 
     const invoiceResponse = await request(app)
       .post(`/api/matters/${matterId}/invoices`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({
         description: "Professional service fee",
         subtotal: 1000,
@@ -461,7 +461,7 @@ describe("ASUN Migrations API", () => {
 
     const paymentResponse = await request(app)
       .post(`/api/invoices/${invoice.id}/pay`)
-      .set("x-user-id", "client-demo")
+      .set("x-user-id", "client-user")
       .expect(200);
 
     expect(paymentResponse.body.data.invoices.find((item: { id: string }) => item.id === invoice.id)).toMatchObject({
@@ -470,11 +470,11 @@ describe("ASUN Migrations API", () => {
 
     const aiBriefResponse = await request(app)
       .post(`/api/matters/${matterId}/ai-brief`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
 
     expect(aiBriefResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       riskLevel: expect.any(String),
       summary: expect.stringContaining("Integration Client")
     });
@@ -483,11 +483,11 @@ describe("ASUN Migrations API", () => {
 
     const workflowSuggestionsResponse = await request(app)
       .post(`/api/matters/${matterId}/ai-workflow-suggestions`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
 
     expect(workflowSuggestionsResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       recommendedStage: expect.any(String),
       stageRationale: expect.any(String)
@@ -497,12 +497,12 @@ describe("ASUN Migrations API", () => {
 
     const messageDraftResponse = await request(app)
       .post(`/api/matters/${matterId}/ai-message-draft`)
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .send({ intent: "DOCUMENT_REQUEST" })
       .expect(200);
 
     expect(messageDraftResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       intent: "DOCUMENT_REQUEST",
       draft: expect.stringContaining("Hi Integration")
@@ -510,7 +510,7 @@ describe("ASUN Migrations API", () => {
 
     const receiptResponse = await request(app)
       .get(`/api/invoices/${invoice.id}/receipt.pdf`)
-      .set("x-user-id", "finance-demo")
+      .set("x-user-id", "finance-user")
       .expect(200);
 
     expect(receiptResponse.headers["content-type"]).toContain("application/pdf");
@@ -518,7 +518,7 @@ describe("ASUN Migrations API", () => {
 
     const xlsxResponse = await request(app)
       .get("/api/reports/export-xlsx?type=pipeline")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
 
     expect(xlsxResponse.headers["content-type"]).toContain(
@@ -527,11 +527,11 @@ describe("ASUN Migrations API", () => {
 
     const reportInsightsResponse = await request(app)
       .post("/api/reports/ai-insights")
-      .set("x-user-id", "rma-demo")
+      .set("x-user-id", "rma-user")
       .expect(200);
 
     expect(reportInsightsResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       overallHealth: expect.any(String),
       executiveSummary: expect.any(String)
@@ -540,11 +540,11 @@ describe("ASUN Migrations API", () => {
 
     const complianceReviewResponse = await request(app)
       .post("/api/compliance/ai-review")
-      .set("x-user-id", "agency-admin-demo")
+      .set("x-user-id", "agency-admin-user")
       .expect(200);
 
     expect(complianceReviewResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       compliancePosture: expect.any(String),
       summary: expect.any(String)
@@ -553,11 +553,11 @@ describe("ASUN Migrations API", () => {
 
     const portalGuidanceResponse = await request(app)
       .post("/api/portal/ai-guidance")
-      .set("x-user-id", "client-demo")
+      .set("x-user-id", "client-user")
       .expect(200);
 
     expect(portalGuidanceResponse.body.data).toMatchObject({
-      provider: "local-demo-ai",
+      provider: "local-ai",
       model: "rules-v1",
       tone: expect.any(String),
       statusSummary: expect.any(String),
@@ -567,7 +567,7 @@ describe("ASUN Migrations API", () => {
 
     const retentionResponse = await request(app)
       .post("/api/compliance/retention-requests")
-      .set("x-user-id", "agency-admin-demo")
+      .set("x-user-id", "agency-admin-user")
       .send({
         clientId,
         action: "ERASURE",
@@ -577,7 +577,7 @@ describe("ASUN Migrations API", () => {
 
     await request(app)
       .patch(`/api/compliance/retention-requests/${retentionResponse.body.data.retentionRequests[0].id}`)
-      .set("x-user-id", "agency-admin-demo")
+      .set("x-user-id", "agency-admin-user")
       .send({ status: "COMPLETED" })
       .expect(200);
 

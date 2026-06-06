@@ -1,6 +1,6 @@
 # ASUN Migrations CRM Product Showcase
 
-Use this guide when preparing the project for employer, stakeholder, or product review. The goal is to present ASUN Migrations CRM as a real full-stack SaaS product, with screenshots that show end-to-end product thinking rather than isolated UI screens.
+Use this guide when preparing ASUN Migrations CRM for stakeholder, customer, investor, or internal product review. The goal is to present the system as a real full-stack SaaS product, with screenshots that show end-to-end product thinking rather than isolated UI screens.
 
 ## Product Positioning
 
@@ -23,9 +23,9 @@ Capture screenshots in a browser at desktop width first. If you want to show res
 
 Page: `/`
 
-Show the product entry point where a reviewer chooses a workspace role. This explains why there is no traditional login screen while still showing role-based access.
+Show the product entry point where a reviewer chooses a workspace role. This highlights role-based access across staff and client workflows.
 
-Recommended role selected: `Registered Migration Agent`
+Role selected: `Registered Migration Agent`
 
 ### 2. Staff Dashboard
 
@@ -66,7 +66,7 @@ Show workflow automation before matter creation:
 - generated task/checklist output
 - AI Intake Assistant result
 
-This demonstrates process automation and product thinking from intake to matter setup.
+This shows process automation and product thinking from intake to matter setup.
 
 ### 6. Document Review With AI
 
@@ -131,7 +131,7 @@ Use this order in README, GitHub, slides, or a product walkthrough:
 
 ## Screenshot File Names
 
-Save screenshots with these names if you want them to be easy to reference later:
+Save screenshots with these names for consistent product materials:
 
 ```text
 docs/screenshots/01-role-selection.png

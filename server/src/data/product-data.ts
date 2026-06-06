@@ -1,41 +1,41 @@
-export const demoUsers = [
+export const productUsers = [
   {
-    id: "asun-admin-demo",
+    id: "asun-admin-user",
     name: "Ava Reyes",
     role: "ASUN_ADMIN",
     title: "ASUN Platform Admin",
     description: "Global SaaS administration, tenancy setup, templates, and audit visibility."
   },
   {
-    id: "agency-admin-demo",
+    id: "agency-admin-user",
     name: "Mina Patel",
     role: "AGENCY_ADMIN",
     title: "Agency Admin",
     description: "Agency configuration, team management, workflows, reports, and audit controls."
   },
   {
-    id: "rma-demo",
+    id: "rma-user",
     name: "Daniel Cho",
     role: "RMA",
     title: "Registered Migration Agent",
     description: "Matter ownership, client advice, document approvals, and lodgement decisions."
   },
   {
-    id: "case-officer-demo",
+    id: "case-officer-user",
     name: "Sophie Nguyen",
     role: "CASE_OFFICER",
     title: "Case Officer",
     description: "Daily task execution, checklist tracking, document review, and client follow-up."
   },
   {
-    id: "finance-demo",
+    id: "finance-user",
     name: "Oliver Stone",
     role: "FINANCE",
     title: "Finance Officer",
     description: "Quotes, invoices, Stripe payment status, receipts, and revenue reporting."
   },
   {
-    id: "client-demo",
+    id: "client-user",
     name: "John Smith",
     role: "CLIENT",
     title: "Client Portal User",

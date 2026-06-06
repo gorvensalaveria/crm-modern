@@ -1,22 +1,22 @@
-# Frontend UX Plan
+# Frontend UX
 
 ## Design Direction
 
-The app should feel like a professional SaaS operations tool. It should be clean, dense, scannable, and built for daily case work.
+The app is a professional SaaS operations tool. It is clean, dense, scannable, and built for daily case work.
 
-Avoid a marketing-heavy interface inside the application. The landing page can introduce the demo, but the main product should prioritize workflows, tables, dashboards, filters, and status clarity.
+The product avoids marketing-heavy surfaces inside the application. The landing page establishes the product and role access, while the main workspace prioritizes workflows, tables, dashboards, filters, status clarity, and fast operational movement.
 
 ## First Screen
 
-The first screen should be a demo entry page with:
+The first screen is a product entry page with:
 
 - Product name: ASUN Migrations
 - Short value proposition
-- "View Demo As" dropdown
+- Workspace role selector
 - Role descriptions
 - Primary action button
 
-The user should be able to select:
+Available product roles:
 
 - ASUN Admin
 - Agency Admin
@@ -25,7 +25,7 @@ The user should be able to select:
 - Finance Officer
 - Client Portal User
 
-After selecting a role, route to the correct experience.
+After role selection, staff users enter the staff workspace and client users enter the portal workspace.
 
 ## App Shell
 
@@ -38,20 +38,20 @@ Staff app layout:
 
 Client portal layout:
 
-- Simpler header
+- Focused portal navigation
 - Matter progress summary
 - Outstanding documents
 - Invoice/payment card
 - Secure messages
 
-## Navigation by Role
+## Navigation By Role
 
 ASUN Admin:
 
 - Dashboard
-- Tenants
-- Users
-- Templates
+- Workflows
+- Reports
+- Compliance
 - Audit Logs
 
 Agency Admin:
@@ -60,42 +60,33 @@ Agency Admin:
 - Clients
 - Matters
 - Workflows
-- Users
+- Billing
 - Reports
+- Compliance
 - Audit Logs
 
-RMA:
+Registered Migration Agent:
 
 - Dashboard
 - Clients
 - Matters
-- Documents
 - Reports
-- Messages
 
 Case Officer:
 
 - Dashboard
 - Clients
 - Matters
-- Tasks
-- Documents
-- Messages
 
-Finance:
+Finance Officer:
 
 - Dashboard
-- Invoices
-- Quotes
-- Payments
-- Revenue Reports
+- Billing
+- Reports
 
 Client:
 
-- My Matter
-- Documents
-- Invoices
-- Messages
+- Portal
 
 ## Key Screens
 
@@ -115,68 +106,90 @@ Widgets:
 
 Features:
 
-- Searchable table
-- Filters by consent status and conflict check
+- Client table
 - Client profile page
-- Dependants section
-- Identifiers section
+- Create/edit client form
+- Consent status
+- Conflict status
+- Dependants
 - Matter history
 
 ### Matters
 
 Features:
 
-- Pipeline board or table
+- Matter table
+- Matter creation from workflow template
+- AI intake plan
 - Matter overview page
 - Stage tracker
 - Key dates
-- Team assignment
 - Tasks
 - Checklist
 - Documents
 - Invoices
+- Messages and notes
+- AI matter assistant
+- AI workflow suggestions
+- AI message drafting
 
 ### Documents
 
 Features:
 
-- Upload area
+- Upload controls
 - File metadata
+- Scan status
 - Status badges
-- Preview placeholder
+- AI review
 - Verify/reject actions
-- Audit history
+- E-signature envelope action
 
 ### Billing
 
 Features:
 
 - Invoice table
-- Invoice detail
-- Quote to invoice action
 - Payment status
-- Stripe checkout simulation
+- Mock checkout
+- Paid status updates
+- Receipt download
 
 ### Reports
 
 Features:
 
 - Pipeline chart
-- Revenue by subclass
-- Overdue work table
-- Export buttons
+- Revenue chart
+- SLA table
+- Deadline table
+- Workload table
+- AI report insights
+- CSV export
+- XLSX export
+
+### Compliance
+
+Features:
+
+- Tenant settings
+- AI compliance review
+- Document security summary
+- Retention and erasure requests
+- Notification logs
+- Integration event logs
 
 ### Audit Logs
 
 Features:
 
-- Filter by actor, entity, action, date
+- Filter by actor, entity, action, and date
 - Timeline table
-- Metadata drawer
+- Metadata details
 
 ## UI Component Style
 
-Use Tailwind with reusable components:
+The product uses Tailwind with reusable components:
 
 - Buttons
 - Icon buttons
@@ -185,12 +198,11 @@ Use Tailwind with reusable components:
 - Data tables
 - Form fields
 - Select menus
-- Tabs
-- Dialogs
 - Empty states
-- Toasts
+- Loading states
+- Error states
 
-Use icons from Lucide React where appropriate.
+Icons come from Lucide React.
 
 ## Accessibility
 
@@ -202,4 +214,3 @@ Target WCAG 2.2 AA:
 - Labelled form fields
 - Clear error messages
 - No text overlap on small screens
-

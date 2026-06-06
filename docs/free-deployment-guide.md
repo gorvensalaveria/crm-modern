@@ -6,7 +6,7 @@ This guide uses a free-friendly split deployment:
 - Backend API: Render Free Web Service
 - Database: Supabase Free Postgres
 
-This is suitable for product review, employer walkthroughs, and light public access. It is not the same as a real production launch because free services can have limits, cold starts, and storage constraints.
+This is suitable for product review, stakeholder walkthroughs, and light public access. It is not the same as a scaled production launch because free services can have limits, cold starts, and storage constraints.
 
 ## Why This Stack
 
@@ -34,19 +34,19 @@ Commit and push your latest changes to GitHub.
 5. Copy the pooled or direct Postgres connection string.
 6. Replace `[YOUR-PASSWORD]` with your actual database password.
 
-Use this value later as `DATABASE_URL` in Render.
+Use this value as `DATABASE_URL` in Render.
 
-Recommended free setup:
+Free-tier setup:
 
 - Keep seeded showcase data small.
 - Do not upload real client documents.
-- Treat uploaded file handling as metadata/local simulation unless external object storage is added later.
+- Treat uploaded file handling as metadata/local persistence unless external object storage is added.
 
 ## 3. Deploy Backend API To Render
 
 Create a new Render Web Service from the GitHub repository.
 
-Recommended settings:
+Settings:
 
 ```text
 Runtime: Node
@@ -62,7 +62,7 @@ Environment variables:
 DATABASE_URL=<your Supabase Postgres connection string>
 PORT=4000
 CLIENT_ORIGIN=<your Vercel frontend URL after frontend deploy>
-OPENAI_API_KEY=<your OpenAI key, optional but recommended>
+OPENAI_API_KEY=<your OpenAI key, optional>
 OPENAI_MODEL=gpt-5.4-mini
 AI_PROVIDER=openai
 ```
@@ -101,7 +101,7 @@ Expected result:
 
 Create a new Vercel project from the same GitHub repository.
 
-Recommended settings:
+Settings:
 
 ```text
 Framework Preset: Vite
@@ -155,7 +155,7 @@ Expect these tradeoffs:
 - Vercel Hobby is intended for personal/non-commercial use.
 - OpenAI usage is not free unless `AI_PROVIDER=local`.
 
-## Recommended Review URL Set
+## Review URL Set
 
 Share these links with reviewers:
 

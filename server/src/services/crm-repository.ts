@@ -11,17 +11,17 @@ import {
   dashboard as fallbackDashboard,
   matters as fallbackMatters,
   portalSummary as fallbackPortalSummary
-} from "../data/demo-data.js";
+} from "../data/product-data.js";
 
-const defaultTenantId = "tenant-asun-demo";
+const defaultTenantId = "tenant-asun-primary";
 
-const demoUserToDbUser: Record<string, string> = {
-  "asun-admin-demo": "user-asun-admin",
-  "agency-admin-demo": "user-agency-admin",
-  "rma-demo": "user-rma",
-  "case-officer-demo": "user-case-officer",
-  "finance-demo": "user-finance",
-  "client-demo": "user-client"
+const productUserToDbUser: Record<string, string> = {
+  "asun-admin-user": "user-asun-admin",
+  "agency-admin-user": "user-agency-admin",
+  "rma-user": "user-rma",
+  "case-officer-user": "user-case-officer",
+  "finance-user": "user-finance",
+  "client-user": "user-client"
 };
 
 export type ClientInput = {
@@ -153,7 +153,7 @@ export type ReportExportType = "pipeline" | "revenue" | "sla" | "deadlines" | "w
 
 export type AiMatterBrief = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   riskLevel: "LOW" | "MEDIUM" | "HIGH";
   summary: string;
@@ -166,7 +166,7 @@ export type AiMatterBrief = {
 
 export type AiMessageDraft = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   intent: AiMessageDraftInput["intent"];
   subject: string;
@@ -175,7 +175,7 @@ export type AiMessageDraft = {
 
 export type AiDocumentReview = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   recommendation: "VERIFY" | "REJECT" | "NEEDS_REVIEW";
   confidence: "LOW" | "MEDIUM" | "HIGH";
@@ -188,7 +188,7 @@ export type AiDocumentReview = {
 
 export type AiWorkflowSuggestion = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   recommendedStage: MatterStageInput["stage"];
   stageRationale: string;
@@ -210,7 +210,7 @@ export type AiWorkflowSuggestion = {
 
 export type AiMatterIntakePlan = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   intakeRisk: "LOW" | "MEDIUM" | "HIGH";
   recommendedVisaSubclass: string;
@@ -235,7 +235,7 @@ export type AiMatterIntakePlan = {
 
 export type AiReportInsights = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   overallHealth: "LOW_RISK" | "WATCH" | "AT_RISK";
   executiveSummary: string;
@@ -248,7 +248,7 @@ export type AiReportInsights = {
 
 export type AiComplianceReview = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   compliancePosture: "GOOD" | "WATCH" | "ACTION_REQUIRED";
   summary: string;
@@ -262,7 +262,7 @@ export type AiComplianceReview = {
 
 export type AiPortalGuidance = {
   generatedAt: string;
-  provider: "openai" | "local-demo-ai";
+  provider: "openai" | "local-ai";
   model: string;
   tone: "REASSURING" | "ACTION_NEEDED" | "URGENT";
   statusSummary: string;
@@ -467,7 +467,7 @@ export async function getClientById(clientId: string) {
   });
 }
 
-export async function createClient(input: ClientInput, demoUserId?: string) {
+export async function createClient(input: ClientInput, productUserId?: string) {
   const client = await prisma.client.create({
     data: {
       tenantId: defaultTenantId,
@@ -484,7 +484,7 @@ export async function createClient(input: ClientInput, demoUserId?: string) {
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "client.created",
     entityType: "Client",
     entityId: client.id,
@@ -494,7 +494,7 @@ export async function createClient(input: ClientInput, demoUserId?: string) {
   return getClientById(client.id);
 }
 
-export async function updateClient(clientId: string, input: ClientInput, demoUserId?: string) {
+export async function updateClient(clientId: string, input: ClientInput, productUserId?: string) {
   const client = await prisma.client.update({
     where: { id: clientId },
     data: {
@@ -515,7 +515,7 @@ export async function updateClient(clientId: string, input: ClientInput, demoUse
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "client.updated",
     entityType: "Client",
     entityId: client.id,
@@ -721,7 +721,7 @@ export async function getMatterById(matterId: string) {
   });
 }
 
-export async function generateMatterAiBrief(matterId: string, demoUserId?: string): Promise<AiMatterBrief> {
+export async function generateMatterAiBrief(matterId: string, productUserId?: string): Promise<AiMatterBrief> {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId },
     include: {
@@ -849,7 +849,7 @@ export async function generateMatterAiBrief(matterId: string, demoUserId?: strin
 
   const localBrief: AiMatterBrief = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     riskLevel,
     summary,
@@ -917,7 +917,7 @@ export async function generateMatterAiBrief(matterId: string, demoUserId?: strin
   const selectedBrief = openAiBrief ?? localBrief;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.matter_brief_generated",
     entityType: "Matter",
     entityId: matter.id,
@@ -982,7 +982,7 @@ async function maybeGenerateOpenAiMatterBrief(matterContext: unknown): Promise<A
 
 export async function generateWorkflowSuggestions(
   matterId: string,
-  demoUserId?: string
+  productUserId?: string
 ): Promise<AiWorkflowSuggestion> {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId },
@@ -1186,7 +1186,7 @@ export async function generateWorkflowSuggestions(
 
   const localSuggestion: AiWorkflowSuggestion = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     recommendedStage,
     stageRationale:
@@ -1255,7 +1255,7 @@ export async function generateWorkflowSuggestions(
   const selectedSuggestion = openAiSuggestion ?? localSuggestion;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.workflow_suggestions_generated",
     entityType: "Matter",
     entityId: matter.id,
@@ -1320,7 +1320,7 @@ async function maybeGenerateOpenAiWorkflowSuggestions(context: unknown): Promise
 
 export async function generateMatterIntakePlan(
   input: MatterIntakePlanInput,
-  demoUserId?: string
+  productUserId?: string
 ): Promise<AiMatterIntakePlan> {
   const [client, template] = await Promise.all([
     prisma.client.findFirst({
@@ -1442,7 +1442,7 @@ export async function generateMatterIntakePlan(
 
   const localPlan: AiMatterIntakePlan = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     intakeRisk,
     recommendedVisaSubclass: template.visaSubclass,
@@ -1503,7 +1503,7 @@ export async function generateMatterIntakePlan(
   const selectedPlan = openAiPlan ?? localPlan;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.matter_intake_plan_generated",
     entityType: "Client",
     entityId: client.id,
@@ -1570,7 +1570,7 @@ async function maybeGenerateOpenAiMatterIntakePlan(context: unknown): Promise<Ai
 export async function generateMatterMessageDraft(
   matterId: string,
   input: AiMessageDraftInput,
-  demoUserId?: string
+  productUserId?: string
 ): Promise<AiMessageDraft> {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId },
@@ -1621,7 +1621,7 @@ export async function generateMatterMessageDraft(
 
   const localDraftResult: AiMessageDraft = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     intent: input.intent,
     subject: localSubject,
@@ -1676,7 +1676,7 @@ export async function generateMatterMessageDraft(
   const selectedDraft = openAiDraft ?? localDraftResult;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.message_draft_generated",
     entityType: "Matter",
     entityId: matter.id,
@@ -1742,7 +1742,7 @@ async function maybeGenerateOpenAiMessageDraft(
   }
 }
 
-export async function generateDocumentAiReview(documentId: string, demoUserId?: string): Promise<AiDocumentReview> {
+export async function generateDocumentAiReview(documentId: string, productUserId?: string): Promise<AiDocumentReview> {
   const document = await prisma.document.findFirst({
     where: { id: documentId, tenantId: defaultTenantId },
     include: {
@@ -1781,7 +1781,7 @@ export async function generateDocumentAiReview(documentId: string, demoUserId?: 
 
   const localReview: AiDocumentReview = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     recommendation,
     confidence,
@@ -1864,7 +1864,7 @@ export async function generateDocumentAiReview(documentId: string, demoUserId?: 
   const selectedReview = openAiReview ?? localReview;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.document_review_generated",
     entityType: "Document",
     entityId: document.id,
@@ -1927,14 +1927,14 @@ async function maybeGenerateOpenAiDocumentReview(context: unknown): Promise<AiDo
   }
 }
 
-export async function updateMatterStage(matterId: string, input: MatterStageInput, demoUserId?: string) {
+export async function updateMatterStage(matterId: string, input: MatterStageInput, productUserId?: string) {
   const matter = await prisma.matter.update({
     where: { id: matterId },
     data: { stage: input.stage }
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "matter.stage_changed",
     entityType: "Matter",
     entityId: matter.id,
@@ -1944,7 +1944,7 @@ export async function updateMatterStage(matterId: string, input: MatterStageInpu
   return getMatterById(matter.id);
 }
 
-export async function updateTaskStatus(taskId: string, input: TaskStatusInput, demoUserId?: string) {
+export async function updateTaskStatus(taskId: string, input: TaskStatusInput, productUserId?: string) {
   const task = await prisma.task.update({
     where: { id: taskId },
     data: {
@@ -1954,7 +1954,7 @@ export async function updateTaskStatus(taskId: string, input: TaskStatusInput, d
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "task.status_changed",
     entityType: "Task",
     entityId: task.id,
@@ -1967,19 +1967,19 @@ export async function updateTaskStatus(taskId: string, input: TaskStatusInput, d
 export async function updateChecklistStatus(
   checklistItemId: string,
   input: ChecklistStatusInput,
-  demoUserId?: string
+  productUserId?: string
 ) {
   const checklistItem = await prisma.checklistItem.update({
     where: { id: checklistItemId },
     data: {
       status: input.status,
-      verifiedById: input.status === "VERIFIED" ? demoUserToDbUser[demoUserId ?? "rma-demo"] : null,
+      verifiedById: input.status === "VERIFIED" ? productUserToDbUser[productUserId ?? "rma-user"] : null,
       verifiedAt: input.status === "VERIFIED" ? new Date() : null
     }
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "checklist.status_changed",
     entityType: "ChecklistItem",
     entityId: checklistItem.id,
@@ -1989,7 +1989,7 @@ export async function updateChecklistStatus(
   return getMatterById(checklistItem.matterId);
 }
 
-export async function createMatterTask(matterId: string, input: MatterTaskInput, demoUserId?: string) {
+export async function createMatterTask(matterId: string, input: MatterTaskInput, productUserId?: string) {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId }
   });
@@ -2005,12 +2005,12 @@ export async function createMatterTask(matterId: string, input: MatterTaskInput,
       title: input.title,
       description: input.description,
       dueOn: new Date(input.dueOn),
-      assigneeId: demoUserId ? demoUserToDbUser[demoUserId] : matter.caseOfficerId
+      assigneeId: productUserId ? productUserToDbUser[productUserId] : matter.caseOfficerId
     }
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "task.created",
     entityType: "Task",
     entityId: task.id,
@@ -2023,7 +2023,7 @@ export async function createMatterTask(matterId: string, input: MatterTaskInput,
 export async function createMatterChecklistItem(
   matterId: string,
   input: MatterChecklistInput,
-  demoUserId?: string
+  productUserId?: string
 ) {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId }
@@ -2045,7 +2045,7 @@ export async function createMatterChecklistItem(
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "checklist.created",
     entityType: "ChecklistItem",
     entityId: item.id,
@@ -2058,7 +2058,7 @@ export async function createMatterChecklistItem(
 export async function uploadMatterDocument(
   matterId: string,
   input: DocumentUploadInput,
-  demoUserId?: string
+  productUserId?: string
 ) {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId }
@@ -2101,13 +2101,13 @@ export async function uploadMatterDocument(
       scanMessage: scan.message,
       scannedAt: new Date(),
       status: "RECEIVED",
-      uploadedById: demoUserId ? demoUserToDbUser[demoUserId] : undefined
+      uploadedById: productUserId ? productUserToDbUser[productUserId] : undefined
     }
   });
 
   if (scan.status === "INFECTED") {
     await writeAuditEvent({
-      demoUserId,
+      productUserId,
       action: "document.quarantined",
       entityType: "Document",
       entityId: document.id,
@@ -2124,7 +2124,7 @@ export async function uploadMatterDocument(
   }
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "document.uploaded",
     entityType: "Document",
     entityId: document.id,
@@ -2141,7 +2141,7 @@ export async function uploadMatterDocument(
   return getMatterById(matterId);
 }
 
-export async function reviewDocument(documentId: string, input: DocumentReviewInput, demoUserId?: string) {
+export async function reviewDocument(documentId: string, input: DocumentReviewInput, productUserId?: string) {
   const document = await prisma.document.findFirst({
     where: { id: documentId, tenantId: defaultTenantId }
   });
@@ -2158,7 +2158,7 @@ export async function reviewDocument(documentId: string, input: DocumentReviewIn
     where: { id: document.id },
     data: {
       status: input.status,
-      verifiedById: input.status === "VERIFIED" ? demoUserToDbUser[demoUserId ?? "rma-demo"] : null,
+      verifiedById: input.status === "VERIFIED" ? productUserToDbUser[productUserId ?? "rma-user"] : null,
       verifiedAt: input.status === "VERIFIED" ? new Date() : null
     }
   });
@@ -2168,14 +2168,14 @@ export async function reviewDocument(documentId: string, input: DocumentReviewIn
       where: { id: reviewedDocument.checklistItemId },
       data: {
         status: input.status,
-        verifiedById: input.status === "VERIFIED" ? demoUserToDbUser[demoUserId ?? "rma-demo"] : null,
+        verifiedById: input.status === "VERIFIED" ? productUserToDbUser[productUserId ?? "rma-user"] : null,
         verifiedAt: input.status === "VERIFIED" ? new Date() : null
       }
     });
   }
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: input.status === "VERIFIED" ? "document.verified" : "document.rejected",
     entityType: "Document",
     entityId: reviewedDocument.id,
@@ -2192,7 +2192,7 @@ export async function reviewDocument(documentId: string, input: DocumentReviewIn
   return getMatterById(reviewedDocument.matterId);
 }
 
-export async function createMatterInvoice(matterId: string, input: InvoiceInput, demoUserId?: string) {
+export async function createMatterInvoice(matterId: string, input: InvoiceInput, productUserId?: string) {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId },
     include: { client: true }
@@ -2219,7 +2219,7 @@ export async function createMatterInvoice(matterId: string, input: InvoiceInput,
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "invoice.created",
     entityType: "Invoice",
     entityId: invoice.id,
@@ -2233,7 +2233,7 @@ export async function createMatterInvoice(matterId: string, input: InvoiceInput,
   return getMatterById(matter.id);
 }
 
-export async function payInvoice(invoiceId: string, demoUserId?: string) {
+export async function payInvoice(invoiceId: string, productUserId?: string) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, tenantId: defaultTenantId },
     include: { matter: true }
@@ -2271,7 +2271,7 @@ export async function payInvoice(invoiceId: string, demoUserId?: string) {
   ]);
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "payment.succeeded",
     entityType: "Payment",
     entityId: invoice.id,
@@ -2282,7 +2282,7 @@ export async function payInvoice(invoiceId: string, demoUserId?: string) {
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "invoice.paid",
     entityType: "Invoice",
     entityId: invoice.id,
@@ -2295,7 +2295,7 @@ export async function payInvoice(invoiceId: string, demoUserId?: string) {
   return getMatterById(invoice.matterId);
 }
 
-export async function createCheckoutSession(invoiceId: string, demoUserId?: string) {
+export async function createCheckoutSession(invoiceId: string, productUserId?: string) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, tenantId: defaultTenantId },
     include: { client: true }
@@ -2323,7 +2323,7 @@ export async function createCheckoutSession(invoiceId: string, demoUserId?: stri
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "stripe.checkout_created",
     entityType: "Invoice",
     entityId: invoice.id,
@@ -2338,7 +2338,7 @@ export async function createCheckoutSession(invoiceId: string, demoUserId?: stri
   };
 }
 
-export async function handleStripeWebhook(input: StripeWebhookInput, demoUserId?: string) {
+export async function handleStripeWebhook(input: StripeWebhookInput, productUserId?: string) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: input.invoiceId, tenantId: defaultTenantId }
   });
@@ -2359,7 +2359,7 @@ export async function handleStripeWebhook(input: StripeWebhookInput, demoUserId?
   });
 
   if (input.status === "succeeded") {
-    return payInvoice(invoice.id, demoUserId);
+    return payInvoice(invoice.id, productUserId);
   }
 
   await prisma.payment.create({
@@ -2374,7 +2374,7 @@ export async function handleStripeWebhook(input: StripeWebhookInput, demoUserId?
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "payment.failed",
     entityType: "Invoice",
     entityId: invoice.id,
@@ -2384,7 +2384,7 @@ export async function handleStripeWebhook(input: StripeWebhookInput, demoUserId?
   return getMatterById(invoice.matterId);
 }
 
-export async function createSignatureEnvelope(input: SignatureEnvelopeInput, demoUserId?: string) {
+export async function createSignatureEnvelope(input: SignatureEnvelopeInput, productUserId?: string) {
   const document = await prisma.document.findFirst({
     where: { id: input.documentId, tenantId: defaultTenantId }
   });
@@ -2406,7 +2406,7 @@ export async function createSignatureEnvelope(input: SignatureEnvelopeInput, dem
       providerEnvelopeId,
       status: "sent",
       signerEmail: input.signerEmail,
-      signingUrl: `https://demo.docusign.local/sign/${providerEnvelopeId}`
+      signingUrl: `https://signing.docusign.local/sign/${providerEnvelopeId}`
     }
   });
 
@@ -2434,7 +2434,7 @@ export async function createSignatureEnvelope(input: SignatureEnvelopeInput, dem
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "signature.envelope_sent",
     entityType: "SignatureEnvelope",
     entityId: envelope.id,
@@ -2450,7 +2450,7 @@ export async function createSignatureEnvelope(input: SignatureEnvelopeInput, dem
   };
 }
 
-export async function handleSignatureWebhook(input: SignatureWebhookInput, demoUserId?: string) {
+export async function handleSignatureWebhook(input: SignatureWebhookInput, productUserId?: string) {
   const envelope = await prisma.signatureEnvelope.findFirst({
     where: { providerEnvelopeId: input.envelopeId, tenantId: defaultTenantId },
     include: { document: true }
@@ -2466,7 +2466,7 @@ export async function handleSignatureWebhook(input: SignatureWebhookInput, demoU
     data: {
       status: input.status,
       completedAt,
-      certificateStorageKey: completedAt ? `demo/certificates/${envelope.providerEnvelopeId}.pdf` : null
+      certificateStorageKey: completedAt ? `certificates/${envelope.providerEnvelopeId}.pdf` : null
     }
   });
 
@@ -2489,7 +2489,7 @@ export async function handleSignatureWebhook(input: SignatureWebhookInput, demoU
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "signature.envelope_status",
     entityType: "SignatureEnvelope",
     entityId: envelope.id,
@@ -2505,7 +2505,7 @@ export async function handleSignatureWebhook(input: SignatureWebhookInput, demoU
   };
 }
 
-export async function createMatterMessage(matterId: string, input: MessageInput, demoUserId?: string) {
+export async function createMatterMessage(matterId: string, input: MessageInput, productUserId?: string) {
   const matter = await prisma.matter.findFirst({
     where: { id: matterId, tenantId: defaultTenantId }
   });
@@ -2518,14 +2518,14 @@ export async function createMatterMessage(matterId: string, input: MessageInput,
     data: {
       tenantId: defaultTenantId,
       matterId,
-      senderId: demoUserId ? demoUserToDbUser[demoUserId] : undefined,
+      senderId: productUserId ? productUserToDbUser[productUserId] : undefined,
       visibility: input.visibility,
       body: input.body
     }
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "message.sent",
     entityType: "Message",
     entityId: message.id,
@@ -2667,7 +2667,7 @@ export async function getReports() {
   );
 }
 
-export async function generateReportInsights(demoUserId?: string): Promise<AiReportInsights> {
+export async function generateReportInsights(productUserId?: string): Promise<AiReportInsights> {
   const reports = await getReports();
   const totalMatters = reports.pipelineByStage.reduce((sum, row) => sum + row.count, 0);
   const totalRevenue = reports.revenueBySubclass.reduce((sum, row) => sum + row.revenue, 0);
@@ -2685,7 +2685,7 @@ export async function generateReportInsights(demoUserId?: string): Promise<AiRep
 
   const localInsights: AiReportInsights = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     overallHealth,
     executiveSummary: `The agency has ${totalMatters} active matter(s), $${totalRevenue.toFixed(2)} paid revenue in the current dataset, ${overdueCount} overdue task(s), and ${reports.upcomingDeadlines.length} upcoming deadline(s). Overall health is ${overallHealth.replaceAll("_", " ").toLowerCase()}.`,
@@ -2747,7 +2747,7 @@ export async function generateReportInsights(demoUserId?: string): Promise<AiRep
   const selectedInsights = openAiInsights ?? localInsights;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.report_insights_generated",
     entityType: "Report",
     entityId: "reports",
@@ -2810,12 +2810,12 @@ async function maybeGenerateOpenAiReportInsights(context: unknown): Promise<AiRe
   }
 }
 
-export async function exportReportCsv(type: ReportExportType, demoUserId?: string) {
+export async function exportReportCsv(type: ReportExportType, productUserId?: string) {
   const reports = await getReports();
   const rowsByType = reportRowsByType(reports);
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "report.exported",
     entityType: "Report",
     entityId: type,
@@ -2831,13 +2831,13 @@ export async function exportReportCsv(type: ReportExportType, demoUserId?: strin
   };
 }
 
-export async function exportReportXlsx(type: ReportExportType, demoUserId?: string) {
+export async function exportReportXlsx(type: ReportExportType, productUserId?: string) {
   const reports = await getReports();
   const rowsByType = reportRowsByType(reports);
   const rows = rowsByType[type];
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "report.exported",
     entityType: "Report",
     entityId: `${type}-xlsx`,
@@ -2853,7 +2853,7 @@ export async function exportReportXlsx(type: ReportExportType, demoUserId?: stri
   };
 }
 
-export async function generateInvoiceReceiptPdf(invoiceId: string, demoUserId?: string) {
+export async function generateInvoiceReceiptPdf(invoiceId: string, productUserId?: string) {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, tenantId: defaultTenantId },
     include: {
@@ -2868,7 +2868,7 @@ export async function generateInvoiceReceiptPdf(invoiceId: string, demoUserId?: 
   }
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "receipt.generated",
     entityType: "Invoice",
     entityId: invoice.id,
@@ -2927,7 +2927,7 @@ export async function getWorkflowTemplates() {
   });
 }
 
-export async function createWorkflowTemplate(input: WorkflowTemplateInput, demoUserId?: string) {
+export async function createWorkflowTemplate(input: WorkflowTemplateInput, productUserId?: string) {
   const template = await prisma.workflowTemplate.create({
     data: {
       tenantId: defaultTenantId,
@@ -2966,7 +2966,7 @@ export async function createWorkflowTemplate(input: WorkflowTemplateInput, demoU
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "workflow_template.created",
     entityType: "WorkflowTemplate",
     entityId: template.id,
@@ -2980,7 +2980,7 @@ export async function createWorkflowTemplate(input: WorkflowTemplateInput, demoU
   return templates.find((item) => item.id === template.id);
 }
 
-export async function createMatterFromTemplate(input: MatterFromTemplateInput, demoUserId?: string) {
+export async function createMatterFromTemplate(input: MatterFromTemplateInput, productUserId?: string) {
   const template = await prisma.workflowTemplate.findFirst({
     where: { id: input.templateId, tenantId: defaultTenantId, active: true },
     include: { items: true }
@@ -3052,7 +3052,7 @@ export async function createMatterFromTemplate(input: MatterFromTemplateInput, d
   }
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "matter.created_from_template",
     entityType: "Matter",
     entityId: matter.id,
@@ -3277,7 +3277,7 @@ export async function getPortalSummary() {
   });
 }
 
-export async function generatePortalGuidance(demoUserId?: string): Promise<AiPortalGuidance> {
+export async function generatePortalGuidance(productUserId?: string): Promise<AiPortalGuidance> {
   const summary = await getPortalSummary();
   const outstandingDocuments = summary.documents.filter((document) => document.status !== "VERIFIED");
   const invoice = summary.invoice;
@@ -3288,7 +3288,7 @@ export async function generatePortalGuidance(demoUserId?: string): Promise<AiPor
 
   const localGuidance: AiPortalGuidance = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     tone,
     statusSummary: `${summary.matterTitle} is currently in ${summary.stage.replaceAll("_", " ").toLowerCase()} stage and is ${summary.progress}% complete in the portal view.`,
@@ -3328,7 +3328,7 @@ export async function generatePortalGuidance(demoUserId?: string): Promise<AiPor
   const selectedGuidance = openAiGuidance ?? localGuidance;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.portal_guidance_generated",
     entityType: "Matter",
     entityId: "matterId" in summary ? summary.matterId : "portal-summary",
@@ -3572,7 +3572,7 @@ function complianceCenterFallback() {
   };
 }
 
-export async function generateComplianceReview(demoUserId?: string): Promise<AiComplianceReview> {
+export async function generateComplianceReview(productUserId?: string): Promise<AiComplianceReview> {
   const [center, auditEvents] = await Promise.all([
     getComplianceCenter(),
     prisma.auditEvent.findMany({
@@ -3604,7 +3604,7 @@ export async function generateComplianceReview(demoUserId?: string): Promise<AiC
 
   const localReview: AiComplianceReview = {
     generatedAt: new Date().toISOString(),
-    provider: "local-demo-ai",
+    provider: "local-ai",
     model: "rules-v1",
     compliancePosture,
     summary: `Compliance posture is ${compliancePosture.replaceAll("_", " ").toLowerCase()} across ${center.documentSecurity.total} recent document(s), ${center.retentionRequests.length} retention request(s), ${center.notifications.length} notification(s), ${center.integrationEvents.length} integration event(s), and ${auditEvents.length} recent audit event(s).`,
@@ -3674,7 +3674,7 @@ export async function generateComplianceReview(demoUserId?: string): Promise<AiC
   const selectedReview = openAiReview ?? localReview;
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "ai.compliance_review_generated",
     entityType: "Compliance",
     entityId: defaultTenantId,
@@ -3737,7 +3737,7 @@ async function maybeGenerateOpenAiComplianceReview(context: unknown): Promise<Ai
   }
 }
 
-export async function updateTenantSettings(input: TenantSettingsInput, demoUserId?: string) {
+export async function updateTenantSettings(input: TenantSettingsInput, productUserId?: string) {
   const tenant = await prisma.tenant.update({
     where: { id: defaultTenantId },
     data: {
@@ -3752,7 +3752,7 @@ export async function updateTenantSettings(input: TenantSettingsInput, demoUserI
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "tenant.settings_updated",
     entityType: "Tenant",
     entityId: tenant.id,
@@ -3762,19 +3762,19 @@ export async function updateTenantSettings(input: TenantSettingsInput, demoUserI
   return getComplianceCenter();
 }
 
-export async function createRetentionRequest(input: RetentionRequestInput, demoUserId?: string) {
+export async function createRetentionRequest(input: RetentionRequestInput, productUserId?: string) {
   const request = await prisma.retentionRequest.create({
     data: {
       tenantId: defaultTenantId,
       clientId: input.clientId,
-      requestedById: demoUserId ? demoUserToDbUser[demoUserId] : undefined,
+      requestedById: productUserId ? productUserToDbUser[productUserId] : undefined,
       action: input.action,
       reason: input.reason
     }
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "retention.requested",
     entityType: "RetentionRequest",
     entityId: request.id,
@@ -3787,25 +3787,25 @@ export async function createRetentionRequest(input: RetentionRequestInput, demoU
 export async function decideRetentionRequest(
   retentionRequestId: string,
   input: RetentionDecisionInput,
-  demoUserId?: string
+  productUserId?: string
 ) {
   const now = new Date();
   const request = await prisma.retentionRequest.update({
     where: { id: retentionRequestId },
     data: {
       status: input.status,
-      approvedById: input.status === "APPROVED" || input.status === "COMPLETED" ? demoUserToDbUser[demoUserId ?? "agency-admin-demo"] : undefined,
+      approvedById: input.status === "APPROVED" || input.status === "COMPLETED" ? productUserToDbUser[productUserId ?? "agency-admin-user"] : undefined,
       approvedAt: input.status === "APPROVED" || input.status === "COMPLETED" ? now : undefined,
       completedAt: input.status === "COMPLETED" ? now : undefined
     }
   });
 
   if (input.status === "COMPLETED" && request.action === "ERASURE" && request.clientId) {
-    await executeClientErasure(request.clientId, demoUserId);
+    await executeClientErasure(request.clientId, productUserId);
   }
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: `retention.${input.status.toLowerCase()}`,
     entityType: "RetentionRequest",
     entityId: request.id,
@@ -3999,7 +3999,7 @@ async function persistUploadedDocument(matterId: string, input: DocumentUploadIn
   const storageKey = path.join("uploads", defaultTenantId, matterId, safeFileName);
   const content = input.fileContentBase64
     ? Buffer.from(input.fileContentBase64, "base64")
-    : Buffer.from(`ASUN demo placeholder for ${input.fileName}\n`);
+    : Buffer.from(`ASUN upload placeholder for ${input.fileName}\n`);
 
   await mkdir(storageDir, { recursive: true });
   await writeFile(path.join(storageDir, safeFileName), content);
@@ -4010,7 +4010,7 @@ async function persistUploadedDocument(matterId: string, input: DocumentUploadIn
   };
 }
 
-async function executeClientErasure(clientId: string, demoUserId?: string) {
+async function executeClientErasure(clientId: string, productUserId?: string) {
   const erasedAt = new Date().toISOString();
   await prisma.client.update({
     where: { id: clientId },
@@ -4026,7 +4026,7 @@ async function executeClientErasure(clientId: string, demoUserId?: string) {
   });
 
   await writeAuditEvent({
-    demoUserId,
+    productUserId,
     action: "client.erased",
     entityType: "Client",
     entityId: clientId,
@@ -4254,13 +4254,13 @@ async function queueNotification({
 }
 
 async function writeAuditEvent({
-  demoUserId,
+  productUserId,
   action,
   entityType,
   entityId,
   metadata
 }: {
-  demoUserId?: string;
+  productUserId?: string;
   action: string;
   entityType: string;
   entityId: string;
@@ -4269,7 +4269,7 @@ async function writeAuditEvent({
   await prisma.auditEvent.create({
     data: {
       tenantId: defaultTenantId,
-      actorUserId: demoUserId ? demoUserToDbUser[demoUserId] : undefined,
+      actorUserId: productUserId ? productUserToDbUser[productUserId] : undefined,
       action,
       entityType,
       entityId,

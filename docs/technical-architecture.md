@@ -20,40 +20,46 @@ The frontend and backend are separate applications inside one npm workspace. Sha
 
 ## Repository Layout
 
-Planned structure:
-
 ```txt
 client/
   src/
-    app/
+    auth/
     components/
-    features/
-    layouts/
-    routes/
+    pages/
     services/
-    styles/
+    state/
+    test/
+    utils/
+    App.tsx
+    main.tsx
+    styles.css
+    types.ts
 
 server/
   src/
-    app.ts
-    server.ts
-    config/
     controllers/
+    data/
+    errors/
+    lib/
     middleware/
     routes/
     services/
+    utils/
     validators/
-    prisma/
+    app.ts
+    app.test.ts
+    server.ts
 
 shared/
   src/
     index.ts
 
-docs/
-  *.md
-
 prisma/
   schema.prisma
+  seed.ts
+
+docs/
+  *.md
 ```
 
 ## Frontend Responsibilities
@@ -61,21 +67,24 @@ prisma/
 The React app owns:
 
 - Routing and page layout
-- Demo role selection
+- Workspace role selection
 - Role-specific navigation
 - Dashboard and report visualizations
 - Forms and client-side validation
 - API data fetching and mutation states
 - Responsive Tailwind UI
 
-Recommended frontend libraries:
+Frontend libraries:
 
-- `react-router-dom` for routing
-- `@tanstack/react-query` for server state
-- `react-hook-form` for forms
-- `zod` for validation schemas
-- `recharts` for charts
-- `lucide-react` for icons
+- `react`
+- `react-dom`
+- `react-router-dom`
+- `@tanstack/react-query`
+- `recharts`
+- `lucide-react`
+- `tailwindcss`
+- `vitest`
+- `@testing-library/react`
 
 ## Backend Responsibilities
 
@@ -87,72 +96,80 @@ The Express API owns:
 - Request validation
 - Role and tenant scoping
 - Audit logging
-- Stripe webhook processing
-- File metadata persistence
-- Integration adapter boundaries
+- Mock Stripe checkout/payment boundaries
+- Mock DocuSign envelope boundaries
+- Document metadata and local file persistence
+- Integration and notification event records
+- AI generation with OpenAI or deterministic local fallback
 
-Recommended backend libraries:
+Backend libraries:
 
 - `express`
 - `cors`
 - `helmet`
+- `dotenv`
 - `zod`
 - `prisma`
 - `@prisma/client`
-- `stripe`
-- `multer` for local file upload MVP
+- `openai`
+- `vitest`
+- `supertest`
 
 ## Shared Package
 
-The `shared` package should contain:
-
-- Role enums
-- Matter stage enums
-- Status enums
-- Zod schemas
-- Shared TypeScript types
-- API response contracts where useful
-
-This prevents duplicated frontend/backend assumptions.
+The `shared` package contains cross-workspace TypeScript and Zod exports. The client carries product view-model types in `client/src/types.ts`, while the server validates request payloads in `server/src/validators/request-schemas.ts`.
 
 ## Multi-Tenant Design
 
-Even in demo mode, the data model should include `tenantId` on business records. This makes the system credible as SaaS software.
+The data model includes `tenantId` on business records so the product behaves like SaaS software even when running with a single seeded tenant.
 
 Tenant-scoped records include:
 
 - Users
 - Clients
+- Family links
 - Matters
+- Key dates
 - Tasks
+- Checklist items
 - Documents
+- Signature envelopes
 - Invoices
 - Payments
 - Messages
-- Audit events
 - Workflow templates
+- Audit events
+- Notifications
+- Retention requests
+- Integration events
 
-## Authentication Strategy for Portfolio Demo
+## Access Strategy
 
-The app will not use a traditional login screen in the MVP. Instead:
+The current product access layer uses selectable workspace roles. The selected user is stored locally and sent to the API through `x-user-id`.
 
-- The landing page shows a role selector.
-- Selecting a role creates a local demo session.
-- The selected role is sent to the API through a demo header or query context.
-- The backend scopes returned data based on the demo user.
+The backend resolves the role from that user ID and enforces route access with central `requireRoles` middleware. This keeps the application ready for a later real authentication provider without changing the domain workflows.
 
-This keeps the presentation smooth while preserving RBAC behavior.
+## Integration Boundaries
 
-## Future Real Auth Upgrade
+Current external-service boundaries:
 
-The architecture should allow later replacement with real auth:
+- OpenAI Responses API when `AI_PROVIDER=openai` and `OPENAI_API_KEY` is configured.
+- Deterministic local AI when `AI_PROVIDER=local` or no key is configured.
+- Mock Stripe checkout session and webhook-ready payment handler.
+- Mock DocuSign envelope creation and webhook-ready status handler.
+- Mock AV file scanning.
+- Local upload persistence under `server/uploads/`.
 
-- Email/password
+## Authentication Upgrade Path
+
+The architecture supports replacement of the role selector with real auth:
+
+- Email/password or SSO
 - MFA
 - Sessions or JWTs
 - Password reset
 - User invitation
-- Client portal accounts
+- Client portal account activation
+- Tenant-aware user provisioning
 
-The demo user strategy should be isolated so it can be replaced cleanly.
-
+Existing RBAC, tenant scoping, audit events, and product workflows can remain in place.

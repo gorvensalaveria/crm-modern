@@ -1,3 +1,3 @@
 export function aiProviderLabel(provider: string) {
-  return provider === "local-demo-ai" ? "Local AI" : provider;
+  return provider === "local-ai" ? "Local AI" : provider;
 }
