@@ -421,6 +421,12 @@ export type PortalSummary = {
       updatedAt: string;
     } | null;
   }>;
+  messages: Array<{
+    id: string;
+    sender: string;
+    body: string;
+    createdAt: string;
+  }>;
 };
 
 export type AuditEvent = {

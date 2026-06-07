@@ -65,6 +65,12 @@ type PortalSummaryData = {
       updatedAt: string;
     } | null;
   }>;
+  messages: Array<{
+    id: string;
+    sender: string;
+    body: string;
+    createdAt: string;
+  }>;
 };
 
 export type ClientInput = {
@@ -3314,7 +3320,12 @@ export async function getPortalSummary(productUserId?: string): Promise<PortalSu
           orderBy: { dueOn: "asc" }
         },
         documents: { orderBy: { updatedAt: "desc" } },
-        invoices: { orderBy: { createdAt: "desc" } }
+        invoices: { orderBy: { createdAt: "desc" } },
+        messages: {
+          where: { visibility: "EXTERNAL" },
+          include: { sender: true },
+          orderBy: { createdAt: "asc" }
+        }
       }
     });
 
@@ -3365,6 +3376,12 @@ export async function getPortalSummary(productUserId?: string): Promise<PortalSu
               updatedAt: item.documents[0].updatedAt.toISOString().slice(0, 10)
             }
           : null
+      })),
+      messages: matter.messages.map((message) => ({
+        id: message.id,
+        sender: message.sender?.name ?? "System",
+        body: message.body,
+        createdAt: message.createdAt.toISOString()
       }))
     };
   });
@@ -3954,7 +3971,8 @@ function emptyPortalSummary(clientName: string) {
       status: "NONE",
       dueOn: ""
     },
-    documents: []
+    documents: [],
+    messages: []
   };
 }
 
@@ -3990,7 +4008,8 @@ function normalizeFallbackPortalSummary(): PortalSummaryData {
       updatedAt: document.updatedAt,
       documentCount: 0,
       latestDocument: null
-    }))
+    })),
+    messages: []
   };
 }
 

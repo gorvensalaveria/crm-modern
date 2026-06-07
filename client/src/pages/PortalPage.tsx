@@ -91,6 +91,7 @@ export function PortalPage() {
 
   if (isLoading || !data) return <p className="text-sm text-ink/60">Loading portal...</p>;
   const hasMatter = data.hasMatter ?? Boolean(data.matterId);
+  const portalMessages = data.messages ?? [];
 
   return (
     <div>
@@ -296,6 +297,23 @@ export function PortalPage() {
             <p className="mt-4 text-sm leading-6 text-ink/60">
               Your agent will be notified when documents are uploaded or a payment is completed.
             </p>
+            <div className="mt-4 space-y-3">
+              {portalMessages.length ? (
+                portalMessages.map((message) => (
+                  <article key={message.id} className="rounded-md border border-black/10 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{message.sender}</p>
+                      <p className="text-xs text-ink/45">{new Date(message.createdAt).toLocaleString()}</p>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">{message.body}</p>
+                  </article>
+                ))
+              ) : (
+                <p className="rounded-md bg-wheat px-3 py-2 text-sm leading-6 text-ink/60">
+                  No portal messages yet.
+                </p>
+              )}
+            </div>
             {messageError ? (
               <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
                 {messageError}
