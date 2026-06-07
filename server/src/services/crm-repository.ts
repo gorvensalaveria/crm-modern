@@ -10,6 +10,7 @@ import {
   clients as fallbackClients,
   dashboard as fallbackDashboard,
   matters as fallbackMatters,
+  productUsers,
   portalSummary as fallbackPortalSummary
 } from "../data/product-data.js";
 
@@ -24,6 +25,48 @@ const productUserToDbUser: Record<string, string> = {
   "client-user": "user-client"
 };
 
+const portalUserPrefix = "client-portal:";
+
+type ProductRoleUser = {
+  id: string;
+  name: string;
+  role: "ASUN_ADMIN" | "AGENCY_ADMIN" | "RMA" | "CASE_OFFICER" | "FINANCE" | "CLIENT";
+  title: string;
+  description: string;
+  clientId?: string;
+};
+
+type PortalSummaryData = {
+  hasMatter?: boolean;
+  matterId: string;
+  clientName: string;
+  matterTitle: string;
+  stage: string;
+  progress: number;
+  outstandingDocuments: number;
+  nextStep: string;
+  invoice: {
+    id?: string;
+    number: string;
+    amount: number;
+    status: string;
+    dueOn: string;
+  };
+  documents: Array<{
+    id: string;
+    title: string;
+    status: string;
+    updatedAt: string;
+    documentCount: number;
+    latestDocument: {
+      id: string;
+      title: string;
+      status: string;
+      updatedAt: string;
+    } | null;
+  }>;
+};
+
 export type ClientInput = {
   name: string;
   email: string;
@@ -34,6 +77,35 @@ export type ClientInput = {
   conflictCheckStatus: "CLEAR" | "ESCALATE" | "DECLINED";
   portalActive: boolean;
 };
+
+export async function getProductRoleUsers(): Promise<ProductRoleUser[]> {
+  return withFallback(productUsers as unknown, async () => {
+    const portalClients = await prisma.client.findMany({
+      where: { tenantId: defaultTenantId, portalActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        nationality: true
+      }
+    });
+
+    const portalUsers: ProductRoleUser[] = portalClients.map((client) => ({
+      id: `${portalUserPrefix}${client.id}`,
+      name: client.name,
+      role: "CLIENT",
+      title: `${client.name} - Client Portal`,
+      description: `Client portal access for ${client.name}${client.nationality ? ` (${client.nationality})` : ""}.`,
+      clientId: client.id
+    }));
+
+    return [
+      ...productUsers.filter((user) => user.id !== "client-user"),
+      ...portalUsers
+    ] as ProductRoleUser[];
+  });
+}
 
 export type MatterFromTemplateInput = {
   clientId: string;
@@ -3218,10 +3290,21 @@ function auditEventsFallback() {
   };
 }
 
-export async function getPortalSummary() {
-  return withFallback(fallbackPortalSummary as unknown, async () => {
+export async function getPortalSummary(productUserId?: string): Promise<PortalSummaryData> {
+  return withFallback(normalizeFallbackPortalSummary(), async () => {
+    const portalClientId = resolvePortalClientId(productUserId);
+    const fallbackClient = portalClientId
+      ? await prisma.client.findFirst({
+          where: { id: portalClientId, tenantId: defaultTenantId },
+          select: { id: true, name: true }
+        })
+      : null;
+
     const matter = await prisma.matter.findFirst({
-      where: { tenantId: defaultTenantId, clientId: "client-john-smith" },
+      where: {
+        tenantId: defaultTenantId,
+        ...(portalClientId ? { clientId: portalClientId } : { clientId: "client-john-smith" })
+      },
       include: {
         client: true,
         checklistItems: {
@@ -3236,12 +3319,17 @@ export async function getPortalSummary() {
     });
 
     if (!matter) {
-      return fallbackPortalSummary;
+      if (portalClientId && fallbackClient) {
+        return emptyPortalSummary(fallbackClient.name);
+      }
+
+      return normalizeFallbackPortalSummary();
     }
 
     const invoice = matter.invoices[0];
 
     return {
+      hasMatter: true,
       matterId: matter.id,
       clientName: matter.client.name,
       matterTitle: matter.title,
@@ -3257,7 +3345,12 @@ export async function getPortalSummary() {
             status: invoice.status,
             dueOn: invoice.dueOn.toISOString().slice(0, 10)
           }
-        : fallbackPortalSummary.invoice,
+        : {
+            number: "No invoice",
+            amount: 0,
+            status: "NONE",
+            dueOn: ""
+          },
       documents: matter.checklistItems.map((item) => ({
         id: item.id,
         title: item.title,
@@ -3278,12 +3371,13 @@ export async function getPortalSummary() {
 }
 
 export async function generatePortalGuidance(productUserId?: string): Promise<AiPortalGuidance> {
-  const summary = await getPortalSummary();
+  const summary = await getPortalSummary(productUserId);
   const outstandingDocuments = summary.documents.filter((document) => document.status !== "VERIFIED");
   const invoice = summary.invoice;
-  const invoiceNeedsPayment = Boolean(invoice && invoice.status !== "PAID" && invoice.amount > 0);
+  const hasMatter = summary.hasMatter ?? Boolean(summary.matterId);
+  const invoiceNeedsPayment = Boolean(hasMatter && invoice && invoice.status !== "PAID" && invoice.amount > 0);
   const tone: AiPortalGuidance["tone"] =
-    outstandingDocuments.length > 2 || invoiceNeedsPayment ? "ACTION_NEEDED" : "REASSURING";
+    !hasMatter || outstandingDocuments.length > 2 || invoiceNeedsPayment ? "ACTION_NEEDED" : "REASSURING";
   const firstName = summary.clientName.split(" ")[0] ?? summary.clientName;
 
   const localGuidance: AiPortalGuidance = {
@@ -3291,7 +3385,9 @@ export async function generatePortalGuidance(productUserId?: string): Promise<Ai
     provider: "local-ai",
     model: "rules-v1",
     tone,
-    statusSummary: `${summary.matterTitle} is currently in ${summary.stage.replaceAll("_", " ").toLowerCase()} stage and is ${summary.progress}% complete in the portal view.`,
+    statusSummary: hasMatter
+      ? `${summary.matterTitle} is currently in ${summary.stage.replaceAll("_", " ").toLowerCase()} stage and is ${summary.progress}% complete in the portal view.`
+      : "No active matter is visible in the portal yet.",
     nextStep: summary.nextStep,
     outstandingItems: outstandingDocuments.length
       ? outstandingDocuments.map((document) => `${document.title} is ${document.status.toLowerCase()}.`)
@@ -3834,6 +3930,68 @@ function progressForStage(stage: string) {
   };
 
   return progressByStage[stage] ?? 0;
+}
+
+function resolvePortalClientId(productUserId?: string) {
+  return productUserId?.startsWith(portalUserPrefix)
+    ? productUserId.slice(portalUserPrefix.length)
+    : undefined;
+}
+
+function emptyPortalSummary(clientName: string) {
+  return {
+    hasMatter: false,
+    matterId: "",
+    clientName,
+    matterTitle: "No active matter yet",
+    stage: "INTAKE",
+    progress: 0,
+    outstandingDocuments: 0,
+    nextStep: "Your migration team has not opened a matter for this portal account yet.",
+    invoice: {
+      number: "No invoice",
+      amount: 0,
+      status: "NONE",
+      dueOn: ""
+    },
+    documents: []
+  };
+}
+
+function normalizeFallbackPortalSummary(): PortalSummaryData {
+  const invoice = fallbackPortalSummary.invoice ?? {
+    id: undefined,
+    number: "No invoice",
+    amount: 0,
+    status: "NONE",
+    dueOn: ""
+  };
+
+  return {
+    hasMatter: true,
+    matterId: "matter-001",
+    clientName: fallbackPortalSummary.clientName,
+    matterTitle: fallbackPortalSummary.matterTitle,
+    stage: fallbackPortalSummary.stage,
+    progress: fallbackPortalSummary.progress,
+    outstandingDocuments: fallbackPortalSummary.outstandingDocuments,
+    nextStep: fallbackPortalSummary.nextStep,
+    invoice: {
+      id: invoice.id,
+      number: invoice.number,
+      amount: invoice.amount,
+      status: invoice.status,
+      dueOn: invoice.dueOn
+    },
+    documents: fallbackPortalSummary.documents.map((document) => ({
+      id: document.id,
+      title: document.title,
+      status: document.status,
+      updatedAt: document.updatedAt,
+      documentCount: 0,
+      latestDocument: null
+    }))
+  };
 }
 
 function nextPortalStep(checklistItems: Array<{ title: string; status: string }>) {

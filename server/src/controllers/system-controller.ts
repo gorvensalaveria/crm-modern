@@ -1,16 +1,17 @@
 import type { Request, Response } from "express";
-import { roleUsers } from "../data/role-data.js";
+import { getProductRoleUsers } from "../services/crm-repository.js";
 import { notFound } from "../errors/api-error.js";
 
 export function getHealth(_req: Request, res: Response) {
   res.json({ data: { status: "ok", service: "asun-migrations-api" } });
 }
 
-export function getRoleUsers(_req: Request, res: Response) {
-  res.json({ data: roleUsers });
+export async function getRoleUsers(_req: Request, res: Response) {
+  res.json({ data: await getProductRoleUsers() });
 }
 
-export function createRoleSession(req: Request, res: Response) {
+export async function createRoleSession(req: Request, res: Response) {
+  const roleUsers = await getProductRoleUsers();
   const selectedUser = roleUsers.find((user) => user.id === req.body?.userId);
 
   if (!selectedUser) {

@@ -430,8 +430,8 @@ app.get("/api/audit-events", requireRoles(roles.admin), async (req, res) => {
   });
 });
 
-app.get("/api/portal/summary", requireRoles(roles.clientOps), async (_req, res) => {
-  res.json({ data: await getPortalSummary() });
+app.get("/api/portal/summary", requireRoles(roles.clientOps), async (req, res) => {
+  res.json({ data: await getPortalSummary(requestUserId(req)) });
 });
 
 app.post("/api/portal/ai-guidance", requireRoles(roles.clientOps), async (req, res) => {

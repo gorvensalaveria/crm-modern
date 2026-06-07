@@ -24,6 +24,9 @@ export function requestUserId(req: Request) {
 
 export function getRequestRole(req: Request): AppRole {
   const userId = requestUserId(req) ?? roleUsers.find((item) => item.role === "RMA")?.id;
+  if (userId?.startsWith("client-portal:")) {
+    return "CLIENT";
+  }
   const user = roleUsers.find((item) => item.id === userId);
   return (user?.role ?? "RMA") as AppRole;
 }

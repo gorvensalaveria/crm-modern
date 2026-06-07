@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
+import { useCurrentUser } from "../state/current-user";
 import type { AiPortalGuidance, DocumentUploadPayload } from "../types";
 import { aiProviderLabel } from "../utils/ai";
 
@@ -17,13 +18,14 @@ const emptyUpload: DocumentUploadPayload = {
 
 export function PortalPage() {
   const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
   const [uploadForm, setUploadForm] = useState<DocumentUploadPayload>(emptyUpload);
   const [uploadError, setUploadError] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [messageError, setMessageError] = useState("");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["portal-summary"],
+    queryKey: ["portal-summary", currentUser?.id],
     queryFn: api.portalSummary
   });
 
@@ -88,6 +90,7 @@ export function PortalPage() {
   }
 
   if (isLoading || !data) return <p className="text-sm text-ink/60">Loading portal...</p>;
+  const hasMatter = data.hasMatter ?? Boolean(data.matterId);
 
   return (
     <div>
@@ -117,6 +120,14 @@ export function PortalPage() {
           </div>
         </div>
       </section>
+
+      {!hasMatter ? (
+        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+          This portal account is active, but no matter has been opened for this client yet.
+          Staff can create a matter from the Matters workspace, then this portal will show
+          requested documents, invoices, messages, and next steps.
+        </section>
+      ) : null}
 
       <section className="mt-6 rounded-lg border border-black/10 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -242,7 +253,7 @@ export function PortalPage() {
               />
               <button
                 type="submit"
-                disabled={uploadMutation.isPending}
+                disabled={uploadMutation.isPending || !hasMatter}
                 className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
               >
                 {uploadMutation.isPending ? "Uploading..." : "Upload"}
@@ -259,14 +270,15 @@ export function PortalPage() {
             </div>
             <p className="mt-4 text-2xl font-semibold">${data.invoice.amount.toLocaleString()}</p>
             <p className="mt-1 text-sm text-ink/55">
-              {data.invoice.number} · due {data.invoice.dueOn}
+              {data.invoice.number}
+              {data.invoice.dueOn ? ` · due ${data.invoice.dueOn}` : ""}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <StatusBadge status={data.invoice.status} />
               {data.invoice.id && data.invoice.status !== "PAID" ? (
                 <button
                   type="button"
-                  disabled={paymentMutation.isPending}
+                  disabled={paymentMutation.isPending || !hasMatter}
                   onClick={() => paymentMutation.mutate(data.invoice.id!)}
                   className="rounded-md border border-black/10 px-3 py-2 text-xs font-semibold hover:border-emerald-600 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -303,7 +315,7 @@ export function PortalPage() {
               />
               <button
                 type="submit"
-                disabled={messageMutation.isPending}
+                disabled={messageMutation.isPending || !hasMatter}
                 className="mt-3 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-moss disabled:cursor-not-allowed disabled:bg-ink/40"
               >
                 {messageMutation.isPending ? "Sending..." : "Message agent"}

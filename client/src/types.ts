@@ -12,6 +12,7 @@ export type AppUser = {
   role: AppRole;
   title: string;
   description: string;
+  clientId?: string;
 };
 
 export type Matter = {
@@ -392,6 +393,7 @@ export type AiPortalGuidance = {
 };
 
 export type PortalSummary = {
+  hasMatter?: boolean;
   matterId: string;
   clientName: string;
   matterTitle: string;
