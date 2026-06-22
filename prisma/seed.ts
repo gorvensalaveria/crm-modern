@@ -22,6 +22,10 @@ const matters = {
   priya186: "matter-priya-186",
   miguel485: "matter-miguel-485"
 };
+const invoices = {
+  priya186: "invoice-priya-186",
+  john482: "invoice-john-482"
+};
 
 async function main() {
   await prisma.tenant.upsert({
@@ -332,12 +336,16 @@ async function seedMatterWork() {
 }
 
 async function seedInvoices() {
+  const seedInvoiceIds = Object.values(invoices);
+
+  await prisma.payment.deleteMany({ where: { invoiceId: { in: seedInvoiceIds } } });
   await prisma.payment.deleteMany({ where: { tenantId } });
+  await prisma.invoice.deleteMany({ where: { id: { in: seedInvoiceIds } } });
   await prisma.invoice.deleteMany({ where: { tenantId } });
 
   const paidInvoice = await prisma.invoice.create({
     data: {
-      id: "invoice-priya-186",
+      id: invoices.priya186,
       tenantId,
       matterId: matters.priya186,
       clientId: clients.priya,
@@ -354,7 +362,7 @@ async function seedInvoices() {
 
   await prisma.invoice.create({
     data: {
-      id: "invoice-john-482",
+      id: invoices.john482,
       tenantId,
       matterId: matters.john482,
       clientId: clients.john,
