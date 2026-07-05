@@ -1,0 +1,63 @@
+name: Deploy Frontend to S3 and CloudFront
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-frontend:
+    name: Build and deploy frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: npm run build --workspace client
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Upload hashed assets with long cache
+        run: |
+          aws s3 sync client/dist/assets "s3://${{ vars.S3_BUCKET }}/assets" \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Upload root files except index.html
+        run: |
+          find client/dist -maxdepth 1 -type f ! -name "index.html" -print0 | while IFS= read -r -d '' file; do
+            key="$(basename "$file")"
+            aws s3 cp "$file" "s3://${{ vars.S3_BUCKET }}/${key}" \
+              --cache-control "public,max-age=3600"
+          done
+
+      - name: Upload index.html with no-cache
+        run: |
+          aws s3 cp client/dist/index.html "s3://${{ vars.S3_BUCKET }}/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"
