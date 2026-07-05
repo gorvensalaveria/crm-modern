@@ -452,7 +452,17 @@ describe("ASUN Migrations API", () => {
       })
       .expect(201);
 
-    const invoice = invoiceResponse.body.data.invoices[0];
+    const invoice = invoiceResponse.body.data.invoices.find(
+      (item: { amount: number; status: string }) => item.amount === 1100 && item.status === "SENT"
+    );
+
+    expect(invoice).toBeDefined();
+    expect(invoice?.id).toEqual(expect.any(String));
+
+    if (!invoice?.id) {
+      throw new Error("Expected created sent invoice to have an id before payment");
+    }
+
     createdEntityIds.add(invoice.id);
     expect(invoice).toMatchObject({
       amount: 1100,
