@@ -23,7 +23,8 @@ async function ensureIntegrationSeed() {
   await Promise.all([
     upsertUser("user-rma", "Daniel Cho", "daniel.cho@asun.test", "RMA"),
     upsertUser("user-case-officer", "Sophie Nguyen", "sophie.nguyen@asun.test", "CASE_OFFICER"),
-    upsertUser("user-finance", "Oliver Stone", "oliver.stone@asun.test", "FINANCE")
+    upsertUser("user-finance", "Oliver Stone", "oliver.stone@asun.test", "FINANCE"),
+    upsertUser("user-client", "John Smith", "john.smith@asun.test", "CLIENT")
   ]);
 
   const template = await prisma.workflowTemplate.upsert({
@@ -68,7 +69,7 @@ async function ensureIntegrationSeed() {
   });
 }
 
-async function upsertUser(id: string, name: string, email: string, role: "RMA" | "CASE_OFFICER" | "FINANCE") {
+async function upsertUser(id: string, name: string, email: string, role: "RMA" | "CASE_OFFICER" | "FINANCE" | "CLIENT") {
   await prisma.user.upsert({
     where: { id },
     update: { name, email, role, status: "ACTIVE" },
@@ -466,6 +467,7 @@ describe("ASUN Migrations API", () => {
     createdEntityIds.add(invoice.id);
     expect(invoice).toMatchObject({
       amount: 1100,
+      matterId,
       status: "SENT"
     });
 
