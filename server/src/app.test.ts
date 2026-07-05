@@ -21,6 +21,7 @@ async function ensureIntegrationSeed() {
   });
 
   await Promise.all([
+    upsertUser("user-agency-admin", "Mina Patel", "mina.patel@asun.test", "AGENCY_ADMIN"),
     upsertUser("user-rma", "Daniel Cho", "daniel.cho@asun.test", "RMA"),
     upsertUser("user-case-officer", "Sophie Nguyen", "sophie.nguyen@asun.test", "CASE_OFFICER"),
     upsertUser("user-finance", "Oliver Stone", "oliver.stone@asun.test", "FINANCE"),
@@ -69,7 +70,12 @@ async function ensureIntegrationSeed() {
   });
 }
 
-async function upsertUser(id: string, name: string, email: string, role: "RMA" | "CASE_OFFICER" | "FINANCE" | "CLIENT") {
+async function upsertUser(
+  id: string,
+  name: string,
+  email: string,
+  role: "AGENCY_ADMIN" | "RMA" | "CASE_OFFICER" | "FINANCE" | "CLIENT"
+) {
   await prisma.user.upsert({
     where: { id },
     update: { name, email, role, status: "ACTIVE" },
