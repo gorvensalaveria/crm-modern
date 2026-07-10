@@ -1,7 +1,9 @@
 .git
+.github
 node_modules
 .env
 .env.local
+.env.*
 coverage
 *.log
 .DS_Store
@@ -9,5 +11,13 @@ coverage
 uploads
 server/uploads
 client/dist
+client/*
+!client/package.json
 server/dist
 shared/dist
+docs/
+screenshots/
+CODEX_*.md
+README.md
+AGENTS.md
+vercel.json
