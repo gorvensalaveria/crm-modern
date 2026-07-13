@@ -1,17 +1,12 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: server/Dockerfile
-    image: crm-modern-api:prod
+    image: "${BACKEND_IMAGE:?BACKEND_IMAGE is required}"
     restart: unless-stopped
     ports:
       - "${HOST_API_PORT:-4000}:4000"
+    env_file:
+      - /opt/crm-modern/env/production.env
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-4000}
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      CLIENT_ORIGIN: ${CLIENT_ORIGIN}
-      AI_PROVIDER: ${AI_PROVIDER:-local}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-mini}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      PORT: "4000"
+      
